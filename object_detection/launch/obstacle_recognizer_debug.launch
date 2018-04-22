@@ -1,0 +1,7 @@
+<launch>
+	<param name="forgivable" value="4" />
+	<param name="max_point_distance" value="1.5" />
+	<param name="min_group_count" value="3" />
+		<param name="skip_count" value="0" />
+	<node launch-prefix="xterm -e gdb --args" pkg="object_recognition_2" name="object_recognition_2_node" type="object_recognition_2_node" />
+</launch>
