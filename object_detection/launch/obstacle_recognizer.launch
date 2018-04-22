@@ -1,0 +1,10 @@
+<launch>	
+	<!-- Object Recognition -->
+	<param name="forgivable" value="3" />
+	<param name="max_point_distance" value="0.15" />
+	<param name="min_group_count" value="4" />
+	<param name="skip_count" value="3" />
+	<param name="pcl_input_topic" value="/scan_to_xy_out" />
+	<param name="frame" value="laser" />
+	<node pkg="object_recognition_2" name="object_recognition_2_node" type="object_recognition_2_node" output="screen" />
+</launch>

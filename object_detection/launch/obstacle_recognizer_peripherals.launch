@@ -1,0 +1,20 @@
+<launch>
+	<!-- TF static publishers -->
+	<node pkg="tf" name="world_to_base" type="static_transform_publisher" args="0 0 0 0 0 0 world base 100" />
+	<node pkg="tf" name="base_to_laser" type="static_transform_publisher" args="0 0 0 0 0 0 base laser 100" />
+
+	<!-- LiDAR -->
+	<arg name="host" default="192.168.0.100" />
+	<node pkg="isc_sick" name="isc_sick" type="LMS1xx_node">
+		<param name="host" value="$(arg host)" />
+	</node>
+		
+	<!-- Scan to XY -->
+	<param name="use_tf" value="true" />
+	<param name="pcl_output" value="/scan_to_xy_out" />
+	<node pkg="ohm_igvc" type="scan_to_xy" name="scan_to_xy" />
+	
+	<!-- RVIZ -->
+	<node pkg="rviz" name="rviz" type="rviz" output="screen" />
+</launch>
+
