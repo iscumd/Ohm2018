@@ -9,15 +9,15 @@ object_detector::object_detector(ros::NodeHandle nh) : node(nh) {
 
 	std::string pcl_topic;
 
-	node.param("pcl_input_topic", pcl_topic, std::string("/scan_to_xy_out"));
+	node.param("pcl_input_topic", pcl_topic, std::string("scan_to_xy_out"));
 
 	ROS_INFO("pcl_input_topic: %s", pcl_topic.c_str());
 
 	pcl_input = node.subscribe(pcl_topic, 1, &object_detector::find_point_groups, this);
 
-	object_groups_pub = node.advertise<sensor_msgs::PointCloud>("/object_groups", 1);
-	object_markers_pub = node.advertise<visualization_msgs::Marker>("/object_markers", 1);
-	range_pub = node.advertise<ohm_igvc_msgs::RangeArray>("/ranges", 1);
+	object_groups_pub = node.advertise<sensor_msgs::PointCloud>("object_groups", 1);
+	object_markers_pub = node.advertise<visualization_msgs::Marker>("object_markers", 1);
+	range_pub = node.advertise<ohm_igvc_msgs::RangeArray>("ranges", 1);
 }
 
 //*** MAIN FUNCTIONS ***//

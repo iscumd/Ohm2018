@@ -51,7 +51,7 @@ void lidar_callback(const ohm_igvc_msgs::RangeArray::ConstPtr &ranges) {
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "heading_control");
 	ros::NodeHandle node;
-	ros::Publisher vel_pub = node.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
+	ros::Publisher vel_pub = node.advertise<geometry_msgs::Twist>("auto_control", 1);
 	
 	double kP, kI, kD, max_i_err;
 	
@@ -62,8 +62,6 @@ int main(int argc, char** argv) {
 
 	ROS_INFO("kP: %f, kI: %f, kD: %f, max_i_err: %f", kP, kI, kD, max_i_err);
 
-	PID controller(kP, kI, kD, max_i_err);
-
 	geometry_msgs::Twist drive_command;
 	drive_command.linear.x = STOP_VEL;
 
@@ -72,7 +70,12 @@ int main(int argc, char** argv) {
 	std::array<double, 5> targets = {0.0, 50.0, 100.0, 175.0, 260.0};
 	int target = 0;
 
+	std::string drive_mode = "manual";
+	while(drive_mode == "manual") { ros::param::get("/drive_mode", drive_mode); }
+
 	ros::spinOnce();
+
+	PID controller(kP, kI, kD, max_i_err);
 	
 	while(ros::ok() && target < targets.size()) {
 		double current_heading = get_heading();
