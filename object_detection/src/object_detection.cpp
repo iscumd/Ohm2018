@@ -87,7 +87,7 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 		geometry_msgs::Point32 position;
 		position.x = tform.getOrigin().x();
 		position.y = tform.getOrigin().y();
-		double heading = quaternion_to_heading(tform.getRotation()); 
+		double heading = quaternion_to_heading(tform.getRotation()) + 180.0; 
 
 		double last_dist = 0.0, last_angle, this_angle, this_dist;
 	
@@ -98,7 +98,7 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 
 				if(this_dist > min_obstacle_distance) {
 					if(last_dist < min_obstacle_distance) {						
-						range.start = (last_dist > 0 ? ((this_angle + last_angle) / 2.0) : this_angle);
+						range.start = (last_dist > 0 ? circular_average(this_angle, last_angle) : this_angle);
 					} else {
 						range.end = this_angle;
 						if(std::next(group, 1) == groups.end() && std::next(point, 1) == group->end()) {
@@ -106,7 +106,7 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 						}
 					}
 				} else {
-					range.end = (last_dist > 0 ? ((this_angle + last_angle) / 2.0) : this_angle);
+					range.end = (last_dist > 0 ? circular_average(this_angle, last_angle) : this_angle);
 					ranges.ranges.push_back(range);
 				} 
 				
@@ -175,7 +175,14 @@ geometry_msgs::Point object_detector::point32_to_point(geometry_msgs::Point32 p)
 	q.y = p.y;
 	q.z = p.z;
 	return q;
-}
+};
+
+double object_detector::circular_average(double a, double b) {
+	// shamelessly stolen from stackoverflow: 
+	// https://stackoverflow.com/questions/491738/how-do-you-calculate-the-average-of-a-set-of-circular-data
+	double diff = (fmod(( a - b + 540.0), 360.0)) - 180.0; 
+	return fmod((360.0 + b + (diff / 2.0)), 360.0);
+};
 
 template <typename point_iterator>
 point_iterator object_detector::find_next_point(point_iterator current, point_iterator end) {
