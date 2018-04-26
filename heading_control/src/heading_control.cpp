@@ -20,8 +20,10 @@
 #define HEADING_MIN -180.0
 
 double get_heading(tf::TransformListener &listener) { // toss all the update code into one neat function
-	tf::StampedTransform tform;	
-	listener.lookupTransform("base", "world", ros::Time::now(), tform);
+	tf::StampedTransform tform;
+	ros::Time now = ros::Time::now();
+	listener.waitForTransform("ohm_base_link", "world", now, ros::Duration(0.15));	
+	listener.lookupTransform("ohm_base_link", "world", now, tform);
 	tf::Quaternion q = tform.getRotation(); // tf puts rotation data into quaternions, not RPY
 
 	// stolen from wikipedia, shamelessly
@@ -65,16 +67,30 @@ int main(int argc, char** argv) {
 	tf::TransformListener pose_listener;
 
 	std::string drive_mode = "manual";
-	while(drive_mode == "manual") { ros::param::get("/drive_mode", drive_mode); }
-
-	ros::spinOnce();
+	bool updatedDriveMode = false;
 
 	PID controller(kP, kI, kD, max_i_err);
 	
 	while(ros::ok() && target < targets.size()) {
+		ros::param::get("/drive_mode", drive_mode);
+		if(drive_mode == "manual") {
+			if(updatedDriveMode) updatedDriveMode = false;
+			ROS_INFO_THROTTLE(15, "Robot is in manual mode. Not testing.");
+			r.sleep();
+			continue;
+		} else if(drive_mode == "auto" && !updatedDriveMode) {
+			updatedDriveMode = true;
+			ROS_INFO("Switched to auto mode. Begin testing.");
+			controller.reset();
+			target = 0;
+		}
+
 		double current_heading = get_heading(pose_listener);
 
-		drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);	
+		drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);
+		
+		if(drive_command.angular.z > 1.0) drive_command.angular.z = 1.0;
+		else if(drive_command.angular.z < -1.0) drive_command.angular.z = -1.0;	
 
 		ROS_INFO("Target: %f | Actual: %f | Update: %f", targets[target], current_heading, drive_command.angular.z);
 

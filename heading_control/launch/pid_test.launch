@@ -1,38 +1,38 @@
 <launch>
-	<!-- Remapping -->
+	<!-- GPS -->
 	<remap from="pose" to="/ohm/raw_pose" />
 	<remap from="velocities" to="/ohm/velocity" />
-	<remap from="odom" to="/ohm/odom" />
-	<remap from="auto_control" to="/ohm/auto_control" />
-	<remap from="motors" to="/ohm" />
-	<remap from="joystick/xbox360" to="/ohm/xinput" />
-	<remap from="joy" to="/ohm/joy" />
-
-	<!-- GPS -->
 	<param name="device" value="/dev/ttyUSB1" />
 	<node pkg="vn300" type="vn300_node" name="vn300_node" />
-	
-	<!-- Joystick and Manual Control-->
-	<param name="dev" value="/dev/input/js1" />
-	<node pkg="joy" type="joy_node" name="joy_node" />
-	<node pkg="isc_joy" type="joystick_xbox360" name="joystick_xbox360"/>
-	<param name="manual_control_speed_multiplier" value="0.3" />
-	<param name="manual_control_turn_multiplier" value="0.2" />
-	<node pkg="isc_joy" type="manual_control" name="manual_control" />
 
 	<!-- Odometry -->
+	<remap from="odom" to="/ohm/odom" />
 	<param name="origin_latitude" value="42.67857277" />
 	<param name="origin_longitude" value="-83.19506167" />
 	<node pkg="ohm_igvc" type="odometry" name="odometry" output="screen" />
 
 	<!-- Heading Control -->
+	<remap from="auto_control" to="/ohm/auto_control" />
 	<param name="kP" value="0.1" />
 	<node pkg="heading_control" type="heading_control_node" name="heading_control" output="screen" />
 
 	<!-- Static Transforms -->
 	<node pkg="tf" type="static_transform_publisher" name="laser_link" args="0 0.3 0 0 0 0 ohm_base_link sick_laser_link 100" />
 
+	<!-- Joystick and Manual Control-->
+	<remap from="joy" to="/ohm/joy" />
+	<param name="~dev" value="/dev/input/js1" />
+	<node pkg="joy" type="joy_node" name="joy_node" />
+	<remap from="joystick/xinput" to="/ohm/xinput" />
+	<node pkg="isc_joy" type="joystick_xbox360" name="joystick_xbox360" />
+	<remap from="/manual_control" to="/ohm/manual_control" />
+	<param name="manual_control_speed_multiplier" value="0.3" />
+	<param name="manual_control_turn_multiplier" value="0.2" />
+	<node pkg="isc_joy" type="manual_control" name="manual_control" />
+
 	<!-- Drive Mode Control -->
+	<remap from="motors/wheel_speeds" to="/ohm/wheel_speeds" />
+	<remap from="joystick/xbox360" to="/ohm/xinput" />	
 	<node pkg="drive_mode_control" type="drive_mode_control" name="ohm_drive_mode_control" />
 
 	<!-- Motor Controller -->
