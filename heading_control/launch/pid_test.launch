@@ -33,7 +33,7 @@
 	<node pkg="tf" type="static_transform_publisher" name="laser_link" args="0 0.3 0 0 0 0 ohm_base_link sick_laser_link 100" />
 
 	<!-- Drive Mode Control -->
-	<node pkg="example" type="basic_drive_mode_control" name="basic_drive_mode_control" />
+	<node pkg="drive_mode_control" type="drive_mode_control" name="ohm_drive_mode_control" />
 
 	<!-- Motor Controller -->
 	<param name="serial_port" value="/dev/ttyUSB0" />

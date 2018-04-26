@@ -19,12 +19,9 @@
 #define HEADING_MAX 180.0
 #define HEADING_MIN -180.0
 
-ohm_igvc_msgs::RangeArray possible_headings;
-tf::TransformListener pose_listener;
-tf::StampedTransform tform;
-
-double get_heading() { // toss all the update code into one neat function
-	pose_listener.lookupTransform("base", "world", ros::Time::now(), tform);
+double get_heading(tf::TransformListener &listener) { // toss all the update code into one neat function
+	tf::StampedTransform tform;	
+	listener.lookupTransform("base", "world", ros::Time::now(), tform);
 	tf::Quaternion q = tform.getRotation(); // tf puts rotation data into quaternions, not RPY
 
 	// stolen from wikipedia, shamelessly
@@ -42,11 +39,6 @@ bool circular_range_compare(double min, double max, double val) {
 }
 
 bool rough_equals(double x, double y, double threshold) { return (std::abs(x - y) < threshold); };
-
-void lidar_callback(const ohm_igvc_msgs::RangeArray::ConstPtr &ranges) {
-	possible_headings.header = ranges->header;
-	possible_headings.ranges = ranges->ranges;
-}
 
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "heading_control");
@@ -70,6 +62,8 @@ int main(int argc, char** argv) {
 	std::array<double, 5> targets = {0.0, 50.0, 100.0, 175.0, 260.0};
 	int target = 0;
 
+	tf::TransformListener pose_listener;
+
 	std::string drive_mode = "manual";
 	while(drive_mode == "manual") { ros::param::get("/drive_mode", drive_mode); }
 
@@ -78,7 +72,7 @@ int main(int argc, char** argv) {
 	PID controller(kP, kI, kD, max_i_err);
 	
 	while(ros::ok() && target < targets.size()) {
-		double current_heading = get_heading();
+		double current_heading = get_heading(pose_listener);
 
 		drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);	
 
