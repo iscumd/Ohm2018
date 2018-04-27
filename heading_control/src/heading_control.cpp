@@ -85,8 +85,8 @@ int main(int argc, char** argv) {
 
 			drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);
 		
-			if(drive_command.angular.z > 1.0) drive_command.angular.z = 1.0;
-			else if(drive_command.angular.z < -1.0) drive_command.angular.z = -1.0;	
+			if(drive_command.angular.z > 0.6) drive_command.angular.z = 0.6;
+			else if(drive_command.angular.z < -0.6) drive_command.angular.z = -0.6;	
 
 			ROS_INFO("Target: %f | Actual: %f | Update: %f", targets[target], current_heading, drive_command.angular.z);
 
