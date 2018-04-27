@@ -21,18 +21,12 @@
 
 double get_heading(tf::TransformListener &listener) { // toss all the update code into one neat function
 	tf::StampedTransform tform;
-	ros::Time now = ros::Time::now();
-	listener.waitForTransform("ohm_base_link", "world", now, ros::Duration(0.15));	
-	listener.lookupTransform("ohm_base_link", "world", now, tform);
-	tf::Quaternion q = tform.getRotation(); // tf puts rotation data into quaternions, not RPY
-
-	// stolen from wikipedia, shamelessly
-	double ysqr = q.getAxis().y() * q.getAxis().y(), zsqr = q.getAxis().z() * q.getAxis().z();
-
-	// yaw (z-axis rotation)
-	double t0 = +2.0f * (q.getAxis().w() * q.getAxis().z() + q.getAxis().x() * q.getAxis().y());
-	double t1 = +1.0f - 2.0f * (ysqr + zsqr);
-	return std::atan2(t0, t1) * (180.0 / boost::math::double_constants::pi) + 180.0; // convert to degrees and put into [0, 360)
+	if(listener.waitForTransform("ohm_base_link", "world", ros::Time::now(), ros::Duration(0.15))) {
+		listener.lookupTransform("ohm_base_link", "world", ros::Time(0), tform);
+		return tf::getYaw(tform.getRotation()) * (180.0 / boost::math::double_constants::pi) + 180.0; // convert to degrees and put into [0, 360)
+	} 
+	
+	return 361.0;
 }
 
 bool circular_range_compare(double min, double max, double val) {
@@ -87,24 +81,30 @@ int main(int argc, char** argv) {
 
 		double current_heading = get_heading(pose_listener);
 
-		drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);
+		if(current_heading <= 360.0) {
+
+			drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);
 		
-		if(drive_command.angular.z > 1.0) drive_command.angular.z = 1.0;
-		else if(drive_command.angular.z < -1.0) drive_command.angular.z = -1.0;	
+			if(drive_command.angular.z > 1.0) drive_command.angular.z = 1.0;
+			else if(drive_command.angular.z < -1.0) drive_command.angular.z = -1.0;	
 
-		ROS_INFO("Target: %f | Actual: %f | Update: %f", targets[target], current_heading, drive_command.angular.z);
+			ROS_INFO("Target: %f | Actual: %f | Update: %f", targets[target], current_heading, drive_command.angular.z);
 
-		if(rough_equals(current_heading, targets[target], 0.5)) {
-			ROS_INFO("HIT Target: %f | Actual: %f", targets[target], current_heading);
-			target++;
-			controller.target(targets[target]);
+			if(rough_equals(current_heading, targets[target], 0.5)) {
+				ROS_INFO("HIT Target: %f | Actual: %f", targets[target], current_heading);
+				target++;
+				controller.target(targets[target]);
+			}
+
+		} else {
+			drive_command.angular.z = 0.0;
 		}
-
+		
 		vel_pub.publish(drive_command);
 
-		r.sleep();
-		
 		ros::spinOnce();
+
+		r.sleep();
 	}
 }
 

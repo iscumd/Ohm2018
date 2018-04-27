@@ -13,7 +13,7 @@
 
 	<!-- Heading Control -->
 	<remap from="auto_control" to="/ohm/auto_control" />
-	<param name="kP" value="0.1" />
+	<param name="kP" value="0.01" />
 	<node pkg="heading_control" type="heading_control_node" name="heading_control" output="screen" />
 
 	<!-- Static Transforms -->
