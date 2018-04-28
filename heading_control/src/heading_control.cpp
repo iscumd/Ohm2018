@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <array>
+#include <string>
 #include <boost/math/constants/constants.hpp>
 
 // TODO: change to ROS params ASAP!
@@ -19,23 +20,96 @@
 #define HEADING_MAX 180.0
 #define HEADING_MIN -180.0
 
-double get_heading(tf::TransformListener &listener) { // toss all the update code into one neat function
-	tf::StampedTransform tform;
-	if(listener.waitForTransform("ohm_base_link", "world", ros::Time::now(), ros::Duration(0.15))) {
-		listener.lookupTransform("ohm_base_link", "world", ros::Time(0), tform);
-		return tf::getYaw(tform.getRotation()) * (180.0 / boost::math::double_constants::pi) + 180.0; // convert to degrees and put into [0, 360)
-	} 
+class heading_controller {
+	public:
+		heading_controller() {
+			// get internal params
+			node.param("max_linear", max_linear_speed, 0.3);
+			node.param("max_angular", max_angular_speed, 0.25);
+			node.param("drive_mode", drive_mode, "manual")
+
+			// get pid params
+			node.param("kP", kP, 0.01);
+			node.param("kI", kI, 0.0);
+			node.param("kD", kD, 0.0);
+			node.param("max_integral_error", max_i_err, 0.5);
+
+			if(kP != 0.0) PID_type |= PID::terms_t::P;
+			if(kI != 0.0) PID_type |= PID::terms_t::I;
+			if(kD != 0.0) PID_type |= PID::terms_t::D;
+
+			// tf stuff
+			node.param("base_frame", base_frame_id, "base");
+			node.param("reference_frame", ref_frame_id, "world");
+
+			// subscriptions and publications
+			camera_sub = node.subscribe<ohm_igvc_msgs::TurnAngles>("turn_angles", &heading_controller::ranges_callback, this);
+			lidar_sub = node.subscribe<ohm_igvc_msgs::RangeArray>("free_ranges", &heading_controller::turn_angles_callback, this);
+			vel_pub = node.advertise<geometry_msgs::Twist>("auto_control", 1);
+
+		};
+
+		void ranges_callback(const ohm_igvc_msgs::RangeArray::ConstPtr &ranges) {
+			lidar_ranges.header = ranges->header;
+			lidar_ranges.ranges = ranges->ranges;
+		}
+
+		void turn_angles_callback(const ohm_igvc_msgs::TurnAngles::ConstPtr &angles) {
+			camera_angles.header = angles->header;
+			camera_angles.angles = angles->angles;
+		}
+
+		/*** HELPER FUNCTIONS ***/
+
+		double get_heading() { // toss all the update code into one neat function
+			tf::StampedTransform tform;
+			if(pose_listener.waitForTransform(base_frame_id, ref_frame_id, ros::Time::now(), ros::Duration(0.15))) {
+				pose_listener.lookupTransform(base_frame_id, ref_frame_id, ros::Time(0), tform);
+				return tf::getYaw(tform.getRotation()) * (180.0 / boost::math::double_constants::pi) + 180.0; // convert to degrees and put into [0, 360)
+			} 
+			
+			return 361.0;
+		};
+
+		bool circular_range_compare(double min, double max, double val) {
+			if(min > max && fabs(max - min) + min > 360.0) return ((val >= min && val < 360.0) || (val <= max && val >= 0.0));
+			else return (val >= min && val <= max); // compares values on a [0, 360) and handles wrapping to 0
+		};
+
+		bool rough_equals(double x, double y, double threshold) { return (std::abs(x - y) < threshold); };
 	
-	return 361.0;
-}
+	private:
+		// internal variables
+		double max_linear_speed;
+		double max_angular_speed;
+		std::string drive_mode;
 
-bool circular_range_compare(double min, double max, double val) {
-	if(min > max && fabs(max - min) + min > 360.0) return ((val >= min && val < 360.0) || (val <= max && val >= 0.0));
-	else return (val >= min && val <= max); // compares values on a [0, 360) and handles wrapping to 0
-}
+		ohm_igvc_msgs::RangeArray lidar_ranges;
+		ohm_igvc_msgs::TurnAngles camera_angles;
 
-bool rough_equals(double x, double y, double threshold) { return (std::abs(x - y) < threshold); };
+		// PID
+		double kP;
+		double kI;
+		double kP;
+		double max_i_err;
 
+		PID::terms_t PID_type; // which terms we are using
+
+		// ros specific
+		ros::NodeHandle node;
+		ros::Subscriber lidar_sub;
+		ros::Subscriber camera_sub;
+		ros::ServiceClient waypoint_srv;
+		ros::Publisher vel_pub;
+
+		// tf stuff
+		std::string base_frame_id;
+		std::string ref_frame_id;
+		tf::TransformListener pose_listener;
+		
+
+
+};
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "heading_control");
 	ros::NodeHandle node;
@@ -83,10 +157,20 @@ int main(int argc, char** argv) {
 
 		if(current_heading <= 360.0) {
 
+
+
+
+
+
+
+
+
+
+			/*
 			drive_command.angular.z = controller.update(current_heading, PID::terms_t::P);
 		
-			if(drive_command.angular.z > 0.6) drive_command.angular.z = 0.6;
-			else if(drive_command.angular.z < -0.6) drive_command.angular.z = -0.6;	
+			if(drive_command.angular.z > 0.35) drive_command.angular.z = 0.35;
+			else if(drive_command.angular.z < -0.35) drive_command.angular.z = -0.35;	
 
 			ROS_INFO("Target: %f | Actual: %f | Update: %f", targets[target], current_heading, drive_command.angular.z);
 
@@ -95,7 +179,7 @@ int main(int argc, char** argv) {
 				target++;
 				controller.target(targets[target]);
 			}
-
+			*/
 		} else {
 			drive_command.angular.z = 0.0;
 		}
