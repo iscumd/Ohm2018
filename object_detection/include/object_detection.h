@@ -35,6 +35,7 @@ class object_detector {
 		void publish_obstacles_rviz(std::vector<std::list<geometry_msgs::Point32>> groups);
 		geometry_msgs::Point point32_to_point(geometry_msgs::Point32 p);
 		double quaternion_to_heading(tf::Quaternion q);
+		double circular_average(double a, double b);
 		
 		// templates
 
