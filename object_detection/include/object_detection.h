@@ -6,6 +6,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Point32.h>
+#include <helper_nodes/util.h>
 #include <ohm_igvc_msgs/Range.h>
 #include <ohm_igvc_msgs/RangeArray.h>
 #include <sensor_msgs/PointCloud.h>
@@ -15,15 +16,11 @@
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 
-#include "util.h"
-
 #include <list>
 #include <cmath>
 #include <vector>
 #include <iterator>
 #include <algorithm>
-#include <boost/math/constants/constants.hpp>
-
 
 class object_detector {
 	public:

@@ -87,7 +87,7 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 		geometry_msgs::Point32 position;
 		position.x = tform.getOrigin().x();
 		position.y = tform.getOrigin().y();
-		double heading = tf::getYaw(tform.getRotation()) * (180.0 / boost::math::double_constants::pi) + 180.0;
+		double heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0;
 
 		double last_dist = 0.0, last_angle, this_angle, this_dist;
 	
@@ -183,7 +183,7 @@ point_iterator object_detector::find_next_point(point_iterator current, point_it
 	int forgiven = 0;
 	point_iterator next_point = std::next(current, 1);
 	while(next_point != end) {
-		if(distance<geometry_msgs::Point32>(*next_point, *current) < eps) {
+		if(geometric::distance<geometry_msgs::Point32>(*next_point, *current) < eps) {
 			return next_point;
 		} else if(forgiven < forgivable) {
 			next_point++;

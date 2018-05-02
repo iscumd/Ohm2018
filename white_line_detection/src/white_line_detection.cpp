@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include <ros/ros.h>
 #include <ros/console.h>
+#include <ros/package.h>
 #include <ohm_igvc_msgs/TurnAngles.h>
 #include <string>
 
@@ -30,6 +31,8 @@ int main()
     ros::init(argc, argv, "camera_turn_angle");
     ros::NodeHandle n;
     ros::Publisher camera_angles = n.advertise<ohm_igvc_msgs::TurnAngles>("camera_turn_angle", 1);
+
+	std::string mask_path = ros::package::getPath("white_line_detection") + std::string("/../data/masks/");
 
     // ROS Params
     std::string cam_device;
@@ -77,16 +80,16 @@ int main()
         }
     }
 
-    mask[0] = cv::imread("0.png", 0); // left most turn
-    mask[1] = cv::imread("1.png", 0);
-    mask[2] = cv::imread("2.png", 0);
-    mask[3] = cv::imread("3.png", 0);
-    mask[4] = cv::imread("4.png", 0);
-    mask[5] = cv::imread("5.png", 0);
-    mask[6] = cv::imread("6.png", 0);
-    mask[7] = cv::imread("7.png", 0);
-    mask[8] = cv::imread("8.png", 0);
-    mask[9] = cv::imread("9.png", 0); // right most turn
+    mask[0] = cv::imread((mask_path + std::string("0.png").c_str()), 0); // left most turn
+    mask[1] = cv::imread((mask_path + std::string("1.png").c_str()), 0);
+    mask[2] = cv::imread((mask_path + std::string("2.png").c_str()), 0);
+    mask[3] = cv::imread((mask_path + std::string("3.png").c_str()), 0);
+    mask[4] = cv::imread((mask_path + std::string("4.png").c_str()), 0);
+    mask[5] = cv::imread((mask_path + std::string("5.png").c_str()), 0);
+    mask[6] = cv::imread((mask_path + std::string("6.png").c_str()), 0);
+    mask[7] = cv::imread((mask_path + std::string("7.png").c_str()), 0);
+    mask[8] = cv::imread((mask_path + std::string("8.png").c_str()), 0);
+    mask[9] = cv::imread((mask_path + std::string("9.png").c_str()), 0); // right most turn
 
     double mask_size[NUM_MASKS];
     for (size_t i = 0; i < NUM_MASKS; i++)

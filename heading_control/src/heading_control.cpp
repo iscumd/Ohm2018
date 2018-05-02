@@ -3,21 +3,20 @@
 
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Twist.h>
+#include <helper_nodes/util.h>
 #include <ohm_igvc_msgs/coordinate_convert.h>
 #include <ohm_igvc_msgs/Range.h>
 #include <ohm_igvc_msgs/RangeArray.h>
-#include <ohm_igvc_msgs/waypoint.h>
+#include <ohm_igvc_msgs/Waypoint.h>
 #include <ohm_igvc_srvs/waypoint.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 
 #include "pid.h"
-#include "util.h"
 
 #include <cmath>
 #include <array>
 #include <string>
-#include <boost/math/constants/constants.hpp>
 
 // TODO: change to ROS params ASAP!
 #define STOP_VEL 0.0
@@ -31,10 +30,10 @@ ohm_igvc_msgs::TurnAngles camera_angles;
 
 // waypoint variables
 int waypoint_id = 0;
-ohm_igvc_msgs::waypoint goal;
+ohm_igvc_msgs::Waypoint goal;
 
 // robot pose
-ohm_igvc_msgs::waypoint pose;
+ohm_igvc_msgs::Waypoint pose;
 
 void ranges_callback(const ohm_igvc_msgs::RangeArray::ConstPtr &ranges) {
 	lidar_ranges.header = ranges->header;
@@ -90,6 +89,7 @@ int main(int argc, char** argv) {
 	/*** VARIABLES ***/
 	// internal variables
 	double waypoint_hit_thresh;
+    double turn_to_heading_thresh;
 	double max_linear_speed;
 	double max_angular_speed;
 	double desired_heading;
@@ -123,6 +123,7 @@ int main(int argc, char** argv) {
 	
 	// get internal params
 	node.param("waypoint_hit", waypoint_hit_thresh, 1.0);
+	node.param("turn_to_heading", turn_to_heading_thresh, 90.0);
 	node.param("max_linear", max_linear_speed, 0.3);
 	node.param("max_angular", max_angular_speed, 0.25);
 	node.param("drive_mode", drive_mode, "manual");
@@ -201,7 +202,7 @@ int main(int argc, char** argv) {
 					drive_command.linear.x = STOP_VEL;
 					desired_heading = goal.heading;
 				} else {
-					
+					if(
 				}
 			}
 			
