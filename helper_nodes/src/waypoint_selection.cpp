@@ -1,5 +1,5 @@
 #include "ros/ros.h"
-#include "ohm_igvc_msgs/target.h"
+#include "ohm_igvc_msgs/Target.h"
 #include "ohm_igvc_srvs/waypoint.h"
 
 #include <fstream>
@@ -16,7 +16,7 @@ struct DMS
 	double seconds;
 };
 
-vector<ohm_igvc_msgs::target> targetLocationList;
+vector<ohm_igvc_msgs::Target> targetLocationList;
 
 //because C++ doesn't have built in string splitting http://stackoverflow.com/a/236803
 void split(const std::string &s, char delim, std::vector<std::string> &elems) {
@@ -42,11 +42,11 @@ double dmsConvert(double degrees, double minutes, double seconds) {
 	return output;
 }
 
-vector<ohm_igvc_msgs::target> ReadFile(string filename){
+vector<ohm_igvc_msgs::Target> ReadFile(string filename){
 	string mode;
 	string str;
 	ifstream file;
-	vector<ohm_igvc_msgs::target> navigationPoints = vector<ohm_igvc_msgs::target>();
+	vector<ohm_igvc_msgs::Target> navigationPoints = vector<ohm_igvc_msgs::Target>();
 
 	file.open(filename.c_str());
 	if((file.rdstate() & std::ifstream::failbit) != 0){
@@ -58,7 +58,7 @@ vector<ohm_igvc_msgs::target> ReadFile(string filename){
 		if (str.substr(0,2) == "//") continue; //skip comments
 		vector<string> lineFields = split(str, ','); //latitude,longitude
 		if(lineFields.size() >= 2){
-			ohm_igvc_msgs::target currentTarget;
+			ohm_igvc_msgs::Target currentTarget;
 			if(mode == "decimal"){
 				currentTarget.latitude = atof(lineFields[0].c_str());
 				currentTarget.longitude = atof(lineFields[1].c_str());
