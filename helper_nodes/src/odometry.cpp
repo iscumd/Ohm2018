@@ -2,9 +2,9 @@
 #include <ros/console.h>
 #include <tf/transform_broadcaster.h>
 #include <geometry_msgs/Pose2D.h>
+#include <ohm_igvc_msgs/Target.h>
 #include <ohm_igvc_srvs/coordinate_convert.h>
 #include <vn300/Pose.h>
-#include <ohm_igvc_msgs/Target.h>
 #include <string>
 #include <cmath>
 
@@ -14,7 +14,7 @@ class odometry {
   public:
     odometry();
     void position_callback(const vn300::Pose::ConstPtr &pos);
-    bool convert_callback(ohm_igvc::coordinate_convert::Request &rq, ohm_igvc::coordinate_convert::Response &rp);
+    bool convert_callback(ohm_igvc_srvs::coordinate_convert::Request &rq, ohm_igvc_srvs::coordinate_convert::Response &rp);
 	double gps_x(double lon) { 
 		//ROS_INFO("K_EW = %f", K_EW);
 		//ROS_INFO("lon = %f", lon);
@@ -79,7 +79,7 @@ void odometry::position_callback(const vn300::Pose::ConstPtr &pos) {
 	pose.publish(position);
 }
 
-bool odometry::convert_callback(ohm_igvc::coordinate_convert::Request &rq, ohm_igvc::coordinate_convert::Response &rp) {
+bool odometry::convert_callback(ohm_igvc_srvs::coordinate_convert::Request &rq, ohm_igvc_srvs::coordinate_convert::Response &rp) {
 	rp.coordinate.x = gps_x(rq.coordinate.longitude);
 	rp.coordinate.y = gps_y(rq.coordinate.latitude);
 

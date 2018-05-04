@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   ohm_igvc_msgs
+  helper_nodes
   geometry_msgs
   visualization_msgs
 )

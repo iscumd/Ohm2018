@@ -10,6 +10,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   ohm_igvc_msgs
+  helper_nodes
   roscpp
   tf
 )

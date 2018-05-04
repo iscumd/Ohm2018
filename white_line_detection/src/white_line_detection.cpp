@@ -26,7 +26,7 @@ double getTurnAngles(cv::Point p1, cv::Point p2)
     return theta;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     ros::init(argc, argv, "camera_turn_angle");
     ros::NodeHandle n;
@@ -36,12 +36,12 @@ int main()
 
     // ROS Params
     std::string cam_device;
-    n.param("device", cam_device, "/dev/video0");
+    n.param("device", cam_device, std::string("/dev/video0"));
 
     std::string camera_frame;
-    n.param("camera_frame", camera_frame, "camera");
+    n.param("camera_frame", camera_frame, std::string("camera"));
 
-    int mask_threshold;
+    double mask_threshold;
     n.param("intersection_threshold", mask_threshold, 0.5);
 
 #pragma region start
@@ -70,6 +70,7 @@ int main()
     for (size_t i = 0; i < NUM_MASKS; i++)
     {
         mask_size[i] = cv::countNonZero(mask[i]);
+
         if (i < NUM_MASKS / 2)
         {
             mask_turn_angles[i] = -getTurnAngles(base_point, pointArray[i]);
@@ -90,12 +91,6 @@ int main()
     mask[7] = cv::imread((mask_path + std::string("7.png").c_str()), 0);
     mask[8] = cv::imread((mask_path + std::string("8.png").c_str()), 0);
     mask[9] = cv::imread((mask_path + std::string("9.png").c_str()), 0); // right most turn
-
-    double mask_size[NUM_MASKS];
-    for (size_t i = 0; i < NUM_MASKS; i++)
-    {
-        mask_size[i] = cv::countNonZero(mask[i]);
-    }
 
     cv::namedWindow("MASK", cv::WINDOW_AUTOSIZE);
     cv::namedWindow("ORIGINAL", cv::WINDOW_AUTOSIZE);
@@ -181,7 +176,7 @@ int main()
             intersections = (cv::countNonZero(anding) / mask_size[i]) * 100;
 
             cv::imshow("OVERLAP", anding);
-            if (intersections < mask_threshhold)
+            if (intersections < mask_threshold)
             {
                 msg.turn_angles.push_back(mask_turn_angles[i]);
             }

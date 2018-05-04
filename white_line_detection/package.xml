@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>whiteline_detection</name>
+  <name>white_line_detection</name>
   <version>0.0.0</version>
   <description>The whiteline_detection package</description>
 

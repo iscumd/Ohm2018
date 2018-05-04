@@ -109,9 +109,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+   INCLUDE_DIRS include
 #  LIBRARIES helper_nodes
-#  CATKIN_DEPENDS geometry_msgs laser_geometry ohm_igvc_msgs ohm_igvc_srvs roscpp sensor_msgs tf vn300
+   CATKIN_DEPENDS geometry_msgs laser_geometry ohm_igvc_msgs ohm_igvc_srvs roscpp sensor_msgs tf vn300
 #  DEPENDS system_lib
 )
 
@@ -122,7 +122,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
+  include/helper_nodes
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -168,11 +168,11 @@ target_link_libraries(scan_to_xy ${catkin_LIBRARIES})
 # )
 
 ## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 # install(FILES
