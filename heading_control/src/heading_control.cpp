@@ -14,10 +14,13 @@
 
 #include "pid.h"
 //#include "directionalalgorithm.h"
+// 	<!-- launch-prefix="xterm -e gdb --args" -->
 
 #include <cmath>
 #include <array>
 #include <string>
+#include <iterator>
+#include <algorithm>
 
 // TODO: change to ROS params ASAP!
 #define STOP_VEL 0.0
@@ -29,6 +32,7 @@ struct heading_control {
 	heading_control(ros::NodeHandle nh) {
 		waypoint_srv = node.serviceClient<ohm_igvc_srvs::waypoint>("waypoint");
 		coordinate_convert = node.serviceClient<ohm_igvc_srvs::coordinate_convert>("coordinate_convert");
+		lidar_sub = node.subscribe(std::string("lidar"), 1, &heading_control::update_lidar, this);
 		vel_pub = node.advertise<geometry_msgs::Twist>("auto_control", 1);
 
 		// get internal params
@@ -40,6 +44,7 @@ struct heading_control {
 		node.param("enable_gps", gps_enable, true);
 		node.param("enable_lidar", lidar_enable, true);
 		node.param("enable_camera", camera_enable, true);
+		node.param("enable_pid_debug", pid_debug, false);
 
 		// get pid params
 		node.param("kP", kP, 0.0);
@@ -57,6 +62,10 @@ struct heading_control {
 
 		waypoint_id = 0;
 	};
+
+	void update_lidar(const ohm_igvc_msgs::RangeArray::ConstPtr &ranges) {
+		lidar_ranges = *ranges;
+	}
 
 	bool get_pose() { // toss all the update code into one neat function
 		tf::StampedTransform tform;
@@ -117,6 +126,7 @@ struct heading_control {
 	ros::NodeHandle node;
 	ros::ServiceClient waypoint_srv;
 	ros::ServiceClient coordinate_convert;
+	ros::Subscriber lidar_sub;
 	ros::Publisher vel_pub;
 
 	// internal variables
@@ -130,9 +140,11 @@ struct heading_control {
 	bool gps_enable;
 	bool lidar_enable;
 	bool camera_enable;
+	bool pid_debug;
 	bool et_go_home;
 	int turn_state; // 0 = NORMAL TURN, 1 = LEFT CROSSING BOUNDARY, 2 = RIGHT CROSSING BOUNDARY, 3 = IN_PLACE
 	ohm_igvc_msgs::Waypoint start;
+	ohm_igvc_msgs::RangeArray lidar_ranges;
 
 	// waypoint variables
 	int waypoint_id;
@@ -190,11 +202,15 @@ int main(int argc, char** argv) {
 		} else if(control.drive_mode == "auto" && !updatedDriveMode) {
 			updatedDriveMode = true;
 			ROS_INFO("Switched to auto mode. Begin testing.");
-			target = 0;
-			pid_controller.target(control.condition_target(targets[target]));
-		}
+			if(control.pid_debug) {
+				target = 0;
+				pid_controller.target(control.condition_target(targets[target]));
+			}
+		}		
 
 		if(control.get_pose()) {
+			/*** Heading Control code ***/			
+			
 			double desired_heading = control.pose.heading;
 			double current_heading;
 			
@@ -229,7 +245,40 @@ int main(int argc, char** argv) {
 				pid_controller.target(chosen_heading);
 			}
 			*/
+
+			if(control.lidar_enable) {
+				if(!control.lidar_ranges.ranges.empty()) {
+					bool found_desired_heading = false;
+					std::vector<double> best_angles;
+					best_angles.reserve(control.lidar_ranges.ranges.size());
+	
+					for(auto range = control.lidar_ranges.ranges.begin(); range != control.lidar_ranges.ranges.end(); ++range) {
+						if(circular_range::in_range(range->start, range->end, desired_heading)) {
+							found_desired_heading = true;
+							break;
+						} else {
+							double best_angle = (std::fabs(desired_heading - range->start) < std::fabs(desired_heading - range->end) ?
+													range->start + 3.0 : range->end - 3.0);
+							best_angles.push_back(best_angle);
+						}
+					}
+					
+					if(!found_desired_heading) {
+						std::sort(best_angles.begin(), best_angles.end());
+				
+						desired_heading = best_angles.front();
+					}
+				} else {
+					desired_heading = circular_range::supplement(desired_heading);
+				}
+			}
+
+			if(!rough_cmp::equals(pid_controller.get_target(), desired_heading, 1.5)) {
+				pid_controller.target(control.condition_target(desired_heading));
+			}
 			
+			/*** PID update code ***/
+
 			switch(control.turn_state) { // condition inputs to get correct PID output
 				case 1: // LEFT CROSS BOUNDARY
 					current_heading = control.pose.heading - 360.0;
@@ -250,13 +299,15 @@ int main(int argc, char** argv) {
 			if(drive_command.angular.z > control.max_angular_speed) drive_command.angular.z = control.max_angular_speed;
 			else if(drive_command.angular.z < -control.max_angular_speed) drive_command.angular.z = -control.max_angular_speed;	
 
-			ROS_INFO("Target: %f | Actual: %f | Update: %f", targets[target], control.pose.heading, drive_command.angular.z);
+			ROS_INFO("Target: %f | Actual: %f | Update: %f", pid_controller.get_target(), control.pose.heading, drive_command.angular.z);
 
-			if(rough_cmp::equals(control.pose.heading, targets[target], 0.5)) {
-				ROS_INFO("HIT Target: %f | Actual: %f", targets[target], control.pose.heading);
-				target++;
+			if(control.pid_debug) {
+				if(rough_cmp::equals(control.pose.heading, targets[target], 0.5)) {
+					ROS_INFO("HIT Target: %f | Actual: %f", targets[target], control.pose.heading);
+					target++;
 				
-				pid_controller.target(control.condition_target(targets[target]));
+					pid_controller.target(control.condition_target(targets[target]));
+				}
 			}
 		} else {
 			ROS_INFO("Could not get pose!");

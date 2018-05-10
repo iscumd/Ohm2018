@@ -3,75 +3,79 @@
 object_detector::object_detector(ros::NodeHandle nh) : node(nh) {
 	// parameters
 	node.param("forgivable", forgivable, 3);
-	node.param("max_point_distance", eps, 1.0);
+	node.param("max_point_distance", eps, 1.0); // meters
 	node.param("min_group_count", min_group_count, 4);
-	node.param("min_obstacle_distance", min_obstacle_distance, 100.0);
+	node.param("min_obstacle_distance", min_obstacle_distance, 100.0); // meters (?)
+	node.param("base_frame", base_frame_id, std::string("base"));
+	node.param("reference_frame", ref_frame_id, std::string("world"));
 
-	std::string pcl_topic;
+	pcl_input = node.subscribe(std::string("scan_to_xy_out"), 1, &object_detector::find_point_groups, this);
 
-	node.param("pcl_input_topic", pcl_topic, std::string("scan_to_xy_out"));
-
-	ROS_INFO("pcl_input_topic: %s", pcl_topic.c_str());
-
-	pcl_input = node.subscribe(pcl_topic, 1, &object_detector::find_point_groups, this);
-
-	object_groups_pub = node.advertise<sensor_msgs::PointCloud>("object_groups", 1);
-	object_markers_pub = node.advertise<visualization_msgs::Marker>("object_markers", 1);
+	//object_groups_pub = node.advertise<sensor_msgs::PointCloud>("object_groups", 1);
+	//object_markers_pub = node.advertise<visualization_msgs::Marker>("object_markers", 1);
 	range_pub = node.advertise<ohm_igvc_msgs::RangeArray>("ranges", 1);
+	skip_count = 15;
+	skipped = 0;
 }
 
 //*** MAIN FUNCTIONS ***//
 
 void object_detector::find_point_groups(const sensor_msgs::PointCloud::ConstPtr &pcl) {
-	std::list<geometry_msgs::Point32> group, points(pcl->points.begin(), pcl->points.end());
-	std::vector<std::list<geometry_msgs::Point32>> groups;
-	groups.reserve(200);
+	if(skipped == 0) {
+		std::list<geometry_msgs::Point32> group, points(pcl->points.begin(), pcl->points.end());
+		std::vector<std::list<geometry_msgs::Point32>> groups;
+		groups.reserve(200);
 
-	ROS_INFO("Iterating over point cloud:");
-	ROS_INFO("\tpcl.size() => %d", (int)points.size());
+		ROS_INFO("Iterating over point cloud:");
+		ROS_INFO("\tpcl.size() => %d", (int)points.size());
 
-	last_received_pcl = pcl->header.stamp;
-	pcl_frame = pcl->header.frame_id;
+		last_received_pcl = pcl->header.stamp;
+		pcl_frame = pcl->header.frame_id;
 
-	for(auto point = points.begin(), last_point = points.begin(); points.size() > min_group_count;) {
-		if(group.empty()) {
-			group.push_back(*point);
-			last_point = point;
-			point = find_next_point(point, points.end());
-			points.erase(last_point);
-		} else {
-			if(point != points.end()) {
+		for(auto point = points.begin(), last_point = points.begin(); points.size() > min_group_count;) {
+			if(group.empty()) {
 				group.push_back(*point);
 				last_point = point;
 				point = find_next_point(point, points.end());
 				points.erase(last_point);
 			} else {
-				groups.push_back(group);
-				group.clear();
-				point = points.begin();
-			}
-		}	
-	}
-
-	int point_count = 0;
-
-	for(auto group = groups.begin(); group != groups.end(); ++group) {
-		for(auto point = group->begin(); std::distance(point, group->end()) > min_group_count;) {
-			group->insert(point, geometric::n_average(point, std::next(point,min_group_count)));	
-			if(std::distance(std::next(point, min_group_count), group->end()) < min_group_count) {
-				point = group->erase(point, group->end());
-			} else {			
-				point = group->erase(point, std::next(point, min_group_count));
-			}
+				if(point != points.end()) {
+					group.push_back(*point);
+					last_point = point;
+					point = find_next_point(point, points.end());
+					points.erase(last_point);
+				} else {
+					groups.push_back(group);
+					group.clear();
+					point = points.begin();
+				}
+			}	
 		}
 
-		point_count += group->size();
+		int point_count = 0;
+
+		for(auto group = groups.begin(); group != groups.end(); ++group) {
+			for(auto point = group->begin(); std::distance(point, group->end()) > min_group_count;) {
+				group->insert(point, geometric::n_average(point, std::next(point,min_group_count)));	
+				if(std::distance(std::next(point, min_group_count), group->end()) < min_group_count) {
+					point = group->erase(point, group->end());
+				} else {			
+					point = group->erase(point, std::next(point, min_group_count));
+				}
+			}
+
+			point_count += group->size();
 	
+		}
+
+		ROS_INFO("\tFound %d groups, consisting of %d points", (int)groups.size(), point_count);
+
+		find_valid_ranges(groups);
+	} else if(skipped > skip_count) {
+		skipped = 0;
+	} else {
+		skipped++;
 	}
-
-	ROS_INFO("\tFound %d groups, consisting of %d points", (int)groups.size(), point_count);
-
-	find_valid_ranges(groups);
 }
 		
 void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Point32>> groups) {
@@ -80,43 +84,41 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 	ohm_igvc_msgs::RangeArray ranges;
 	ohm_igvc_msgs::Range range;
 
-	try {
-		pose_listener.lookupTransform("base", "world", ros::Time::now(), tform);
-
-		// start here
-		geometry_msgs::Point32 position;
-		position.x = tform.getOrigin().x();
-		position.y = tform.getOrigin().y();
-		double heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0;
-
-		double last_dist = 0.0, last_angle, this_angle, this_dist;
+	if(get_pose()) {
+		double last_dist = 0.0, last_angle = std::fmod((pose.heading - 135.0), 360.0), this_angle, this_dist;
 	
 		for(auto group = groups.begin(); group != groups.end(); ++group) {
 			for(auto point = group->begin(); point != group->end(); ++point) {
-				this_angle = geometric::angular_distance(position, *point);
-				this_dist = geometric::distance(*point, position);
+				//ROS_INFO("point %d, group %d: (%f, %f)", (int)std::distance(group->begin(), point), (int)std::distance(groups.begin(), group), point->x, point->y);
+
+				this_angle = geometric::angular_distance(pose.position, point32_to_point(*point));
+				this_dist = geometric::distance(point32_to_point(*point), pose.position);
+
+				//ROS_INFO("@ %f deg, %f m", this_angle, this_dist);
 
 				if(this_dist > min_obstacle_distance) {
-					if(last_dist < min_obstacle_distance) {						
-						range.start = (last_dist > 0 ? circular_range::average(this_angle, last_angle) : this_angle);
+					if(last_dist <= min_obstacle_distance) {						
+						range.start = (last_dist > 0.0 ? circular_range::average(this_angle, last_angle)) : last_angle;
+						//ROS_INFO("Set range start = %f [%d]", range.start, (int)ranges.ranges.size());
 					} else {
-						range.end = this_angle;
 						if(std::next(group, 1) == groups.end() && std::next(point, 1) == group->end()) {
+							range.end = std::fmod((pose.heading + 135.0), 360.0);
+							//ROS_INFO("Set range end = %f [%d]\nPush back range (%f, %f) [%d]", range.end, (int)ranges.ranges.size(), range.start, range.end, (int)ranges.ranges.size());
 							ranges.ranges.push_back(range);
 						}
 					}
 				} else {
-					range.end = (last_dist > 0 ? circular_range::average(this_angle, last_angle) : this_angle);
-					ranges.ranges.push_back(range);
+					if(last_dist > min_obstacle_distance) {
+						range.end = circular_range::average(last_angle, this_angle);				
+						//ROS_INFO("Set range end %f [%d]\nPush back range (%f, %f) [%d]", range.end, (int)ranges.ranges.size(), range.start, range.end, (int)ranges.ranges.size());					
+						ranges.ranges.push_back(range);
+					}
 				} 
 				
 				last_dist = this_dist;
 				last_angle = this_angle;
 			}
 		}
-	} catch (tf::TransformException &ex) {
-		ROS_ERROR("%s",ex.what());
-		ros::Duration(1.0).sleep();
 	}
 		
 	ranges.header.frame_id = pcl_frame;
@@ -169,6 +171,19 @@ void object_detector::publish_obstacles_rviz(std::vector<std::list<geometry_msgs
 	object_groups_pub.publish(pcl);
 };
 
+bool object_detector::get_pose() { // toss all the update code into one neat function
+	tf::StampedTransform tform;
+	if(pose_listener.waitForTransform(base_frame_id, ref_frame_id, ros::Time::now(), ros::Duration(0.15))) {
+		pose_listener.lookupTransform(base_frame_id, ref_frame_id, ros::Time(0), tform);
+		pose.position.x = tform.getOrigin().x();
+		pose.position.y = tform.getOrigin().y();
+		pose.heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0; // convert to degrees and put into [0, 360)
+		return true;	
+	} 
+	
+	return false;
+};
+
 geometry_msgs::Point object_detector::point32_to_point(geometry_msgs::Point32 p) {
 	geometry_msgs::Point q;
 	q.x = p.x;
@@ -176,7 +191,6 @@ geometry_msgs::Point object_detector::point32_to_point(geometry_msgs::Point32 p)
 	q.z = p.z;
 	return q;
 };
-
 
 template <typename point_iterator>
 point_iterator object_detector::find_next_point(point_iterator current, point_iterator end) {
