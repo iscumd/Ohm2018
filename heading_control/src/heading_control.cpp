@@ -220,7 +220,6 @@ int main(int argc, char** argv) {
 			/*** Heading Control code ***/			
 			
 			double desired_heading = control.pose.heading;
-			double current_heading;
 			
 			if(control.pid_debug) {
 				desired_heading = targets[target];
@@ -251,7 +250,7 @@ int main(int argc, char** argv) {
 
 			/*
 			// add optimal direction code here
-			chosen_heading = control.optimal_heading.optimaldirection(desired_heading, current_heading);
+			chosen_heading = control.optimal_heading.optimaldirection(desired_heading, adjusted_heading);
 				
 			if(rough_cmp::equals(controller.get_target(), chosen_heading, 2) {
 				pid_controller.target(chosen_heading);
@@ -283,8 +282,8 @@ int main(int argc, char** argv) {
 							ROS_INFO("\tFound the heading!");
 							break;
 						} else {
-							best_angles.push_back(circular_range::direction(desired_heading, range->start) * std::fabs(desired_heading - range->start));
-							best_angles.push_back(circular_range::direction(desired_heading, range->end) * std::fabs(desired_heading - range->end));
+							best_angles.push_back(circular_range::direction(desired_heading, range->start) * circular_range::smallest_difference(desired_heading, circular_range::wrap(range->start + 5.0, 360.0)));
+							best_angles.push_back(circular_range::direction(desired_heading, range->end) * circular_range::smallest_difference(desired_heading, circular_range::wrap(range->end - 5.0, 360.0)));
 							ROS_INFO("\tDidn't find the heading. Finding closest angle instead");
 						}
 					}
@@ -308,22 +307,24 @@ int main(int argc, char** argv) {
 			
 			/*** PID update code ***/
 
+			double adjusted_heading;
+
 			switch(control.turn_state) { // condition inputs to get correct PID output. similar to condition_target
 				case 1: // LEFT CROSS BOUNDARY
-					current_heading = control.pose.heading - 360.0;
+					adjusted_heading = control.pose.heading - 360.0;
 					break;
 				case 2: // RIGHT CROSS BOUNDARY
-					current_heading = control.pose.heading + 360.0;
+					adjusted_heading = control.pose.heading + 360.0;
 					break;
 				case 3: // IN_PLACE
 					drive_command.linear.x = 0.0;
 					break;
 				default:
-					current_heading = control.pose.heading;
+					adjusted_heading = control.pose.heading;
 					drive_command.linear.x = control.max_linear_speed;
 			}		
 			
-			drive_command.angular.z = pid_controller.update(current_heading, control.PID_type); // update pid
+			drive_command.angular.z = pid_controller.update(adjusted_heading, control.PID_type); // update pid
 		
 			if(drive_command.angular.z > control.max_angular_speed) drive_command.angular.z = control.max_angular_speed;
 			else if(drive_command.angular.z < -control.max_angular_speed) drive_command.angular.z = -control.max_angular_speed;	
