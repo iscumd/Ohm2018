@@ -10,21 +10,34 @@ namespace rough_cmp {
 }
 
 namespace circular_range {
+	template<class float_t>
+	inline float_t wrap(float_t angle, float_t max) { return angle - std::floor(angle / max) * max; };
+
 	inline bool in_range(double min, double max, double val) {
 		if(min > max && fabs(max - min) + min > 360.0) return ((val >= min && val < 360.0) || (val <= max && val >= 0.0));
 		else return (val >= min && val <= max); // compares values on a [0, 360) and handles wrapping to 0
 	}
+
+	inline double smallest_difference(double a, double b) { return (wrap((a - b + 540.0), 360.0) - 180.0); };
 	
 	inline double average(double a, double b) {
 		// shamelessly stolen from stackoverflow: 
 		// https://stackoverflow.com/questions/491738/how-do-you-calculate-the-average-of-a-set-of-circular-data
-		double diff = (fmod((a - b + 540.0), 360.0)) - 180.0; 
-		return fmod((360.0 + b + (diff / 2.0)), 360.0);
+		return wrap((360.0 + b + (smallest_difference(a, b) / 2.0)), 360.0);
 	}
 
 	inline double supplement(double angle) {
 		if(angle >= 180.0) return (angle - 180.0);
 		return (angle + 180.0);
+	}
+
+	inline int direction(double a, double b) {
+		double diff = std::fabs(a - b);
+		
+		if(diff > 180.0 && a > b) return 1.0; // turning right over boundary
+		else if(diff > 180.0 && a < b) return -1.0; // turning left over boundary
+		else if(diff <= 180.0 && a < b) return 1.0; // turning right
+		else return -1.0; // must be turning left
 	}
 }
 
@@ -35,7 +48,7 @@ namespace geometric {
 	inline double distance(point_t a, point_t b) { return std::hypot(b.x - a.x, b.y - a.y); }
 
 	template<class point_t> // where a is your reference and b is your test point
-	inline double angular_distance(point_t a, point_t b) { return std::atan2((b.y - a.y), (b.x - a.x)) * (180.0 / pi) + 180.0; };
+	inline double angular_distance(point_t a, point_t b) { return circular_range::wrap(std::atan2((b.y - a.y), (b.x - a.x)) * (180.0 / pi) + 180.0, 360.0); };
 
 	template<class point_t> // special case of average of 2 points
 	inline point_t average(point_t a, point_t b) {

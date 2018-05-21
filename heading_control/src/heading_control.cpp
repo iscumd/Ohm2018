@@ -6,6 +6,7 @@
 #include <helper_nodes/util.h>
 #include <ohm_igvc_msgs/Range.h>
 #include <ohm_igvc_msgs/RangeArray.h>
+#include <ohm_igvc_msgs/TurnAngles.h>
 #include <ohm_igvc_msgs/Waypoint.h>
 #include <ohm_igvc_srvs/waypoint.h>
 #include <ohm_igvc_srvs/coordinate_convert.h>
@@ -33,6 +34,7 @@ struct heading_control {
 		waypoint_srv = node.serviceClient<ohm_igvc_srvs::waypoint>("waypoint");
 		coordinate_convert = node.serviceClient<ohm_igvc_srvs::coordinate_convert>("coordinate_convert");
 		lidar_sub = node.subscribe(std::string("lidar"), 1, &heading_control::update_lidar, this);
+		camera_sub = node.subscribe(std::string("camera"), 1, &heading_control::update_camera, this);
 		vel_pub = node.advertise<geometry_msgs::Twist>("auto_control", 1);
 
 		// get internal params
@@ -67,10 +69,14 @@ struct heading_control {
 		lidar_ranges = *ranges;
 	}
 
+	void update_camera(const ohm_igvc_msgs::TurnAngles::ConstPtr &angles) {
+		turn_angles = *angles;
+	}
+
 	bool get_pose() { // toss all the update code into one neat function
 		tf::StampedTransform tform;
-		if(pose_listener.waitForTransform(base_frame_id, ref_frame_id, ros::Time::now(), ros::Duration(0.15))) {
-			pose_listener.lookupTransform(base_frame_id, ref_frame_id, ros::Time(0), tform);
+		if(pose_listener.waitForTransform(ref_frame_id, base_frame_id, ros::Time::now(), ros::Duration(0.15))) {
+			pose_listener.lookupTransform(ref_frame_id, base_frame_id, ros::Time(0), tform);
 			pose.position.x = tform.getOrigin().x();
 			pose.position.y = tform.getOrigin().y();
 			pose.heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0; // convert to degrees and put into [0, 360)
@@ -127,6 +133,7 @@ struct heading_control {
 	ros::ServiceClient waypoint_srv;
 	ros::ServiceClient coordinate_convert;
 	ros::Subscriber lidar_sub;
+	ros::Subscriber camera_sub;
 	ros::Publisher vel_pub;
 
 	// internal variables
@@ -145,6 +152,7 @@ struct heading_control {
 	int turn_state; // 0 = NORMAL TURN, 1 = LEFT CROSSING BOUNDARY, 2 = RIGHT CROSSING BOUNDARY, 3 = IN_PLACE
 	ohm_igvc_msgs::Waypoint start;
 	ohm_igvc_msgs::RangeArray lidar_ranges;
+	ohm_igvc_msgs::TurnAngles turn_angles;
 
 	// waypoint variables
 	int waypoint_id;
@@ -181,7 +189,7 @@ int main(int argc, char** argv) {
 
 	ros::Rate r(10);
 
-	std::array<double, 5> targets = {10.0, 50.0, 100.0, 175.0, 260.0};
+	std::array<double, 5> targets = {0.0, 100.0, 320.0, 95.0, 15.0};
 	int target = 0;
 
 	bool updatedDriveMode = false;
@@ -214,6 +222,10 @@ int main(int argc, char** argv) {
 			double desired_heading = control.pose.heading;
 			double current_heading;
 			
+			if(control.pid_debug) {
+				desired_heading = targets[target];
+			}
+
 			if(control.gps_enable) {
 				desired_heading = geometric::angular_distance(control.pose.position, control.goal.position);
 
@@ -245,41 +257,58 @@ int main(int argc, char** argv) {
 				pid_controller.target(chosen_heading);
 			}
 			*/
-
-			if(control.lidar_enable) {
-				if(!control.lidar_ranges.ranges.empty()) {
-					bool found_desired_heading = false;
+			if(control.camera_enable) {
+				if(!control.turn_angles.turn_angles.empty() && std::fabs(desired_heading - control.pose.heading) < 60.0) {
 					std::vector<double> best_angles;
-					best_angles.reserve(control.lidar_ranges.ranges.size());
-	
-					for(auto range = control.lidar_ranges.ranges.begin(); range != control.lidar_ranges.ranges.end(); ++range) {
-						if(circular_range::in_range(range->start, range->end, desired_heading)) {
-							found_desired_heading = true;
-							break;
-						} else {
-							double best_angle = (std::fabs(desired_heading - range->start) < std::fabs(desired_heading - range->end) ?
-													range->start + 3.0 : range->end - 3.0);
-							best_angles.push_back(best_angle);
-						}
-					}
-					
-					if(!found_desired_heading) {
-						std::sort(best_angles.begin(), best_angles.end());
+					best_angles.reserve(control.turn_angles.turn_angles.size());
 				
-						desired_heading = best_angles.front();
+					for(auto angle = control.turn_angles.turn_angles.begin(); angle != control.turn_angles.turn_angles.end(); ++angle) {
+						best_angles.push_back(circular_range::direction(desired_heading, *angle) * std::fabs(desired_heading - *angle));
 					}
-				} else {
-					desired_heading = circular_range::supplement(desired_heading);
+
+					std::sort(best_angles.begin(), best_angles.end(), [] (double a, double b) { return (std::fabs(a) < std::fabs(b)); });
+					desired_heading += best_angles.front();
 				}
 			}
 
-			if(!rough_cmp::equals(pid_controller.get_target(), desired_heading, 1.5)) {
-				pid_controller.target(control.condition_target(desired_heading));
+			if(control.lidar_enable) {
+				if(!control.lidar_ranges.ranges.empty() && std::fabs(desired_heading - control.pose.heading) < 135.0) {
+					bool found_desired_heading = false;
+					std::vector<double> best_angles;
+					best_angles.reserve(control.lidar_ranges.ranges.size() * 2);
+	
+					for(auto range = control.lidar_ranges.ranges.begin(); range != control.lidar_ranges.ranges.end(); ++range) {
+						if(circular_range::in_range(range->start, range->end, desired_heading)) {
+							found_desired_heading = true; // if the desired heading is in this range, break and run with that
+							ROS_INFO("\tFound the heading!");
+							break;
+						} else {
+							best_angles.push_back(circular_range::direction(desired_heading, range->start) * std::fabs(desired_heading - range->start));
+							best_angles.push_back(circular_range::direction(desired_heading, range->end) * std::fabs(desired_heading - range->end));
+							ROS_INFO("\tDidn't find the heading. Finding closest angle instead");
+						}
+					}
+					
+					if(!found_desired_heading) { // ok now we look for the smallest difference
+						std::sort(best_angles.begin(), best_angles.end(), [] (double a, double b) { return (std::fabs(a) < std::fabs(b)); });
+						
+						desired_heading += best_angles.front(); 
+						ROS_INFO("\tFound next best angle");
+					}
+				} else if(control.lidar_ranges.ranges.empty()) {
+					desired_heading = circular_range::supplement(desired_heading); // turn in place
+					ROS_INFO("\tCouldn't find any heading");
+				}
+			}
+
+			if(!rough_cmp::equals(pid_controller.get_target(), desired_heading, 2.0)) {
+				pid_controller.target(control.condition_target(desired_heading)); // if we don't have options, turn in place
+				ROS_INFO("\tSwitching heading");
 			}
 			
 			/*** PID update code ***/
 
-			switch(control.turn_state) { // condition inputs to get correct PID output
+			switch(control.turn_state) { // condition inputs to get correct PID output. similar to condition_target
 				case 1: // LEFT CROSS BOUNDARY
 					current_heading = control.pose.heading - 360.0;
 					break;
@@ -294,7 +323,7 @@ int main(int argc, char** argv) {
 					drive_command.linear.x = control.max_linear_speed;
 			}		
 			
-			drive_command.angular.z = pid_controller.update(current_heading, control.PID_type);
+			drive_command.angular.z = pid_controller.update(current_heading, control.PID_type); // update pid
 		
 			if(drive_command.angular.z > control.max_angular_speed) drive_command.angular.z = control.max_angular_speed;
 			else if(drive_command.angular.z < -control.max_angular_speed) drive_command.angular.z = -control.max_angular_speed;	

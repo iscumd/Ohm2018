@@ -2,6 +2,7 @@
 #include <ros/console.h>
 #include <tf/transform_broadcaster.h>
 #include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <ohm_igvc_msgs/Target.h>
 #include <ohm_igvc_srvs/coordinate_convert.h>
 #include <vn300/Pose.h>
@@ -19,12 +20,14 @@ class odometry {
 		//ROS_INFO("K_EW = %f", K_EW);
 		//ROS_INFO("lon = %f", lon);
 		//ROS_INFO("start lon = %f", origin.longitude);
-		return (K_EW * (lon - origin.longitude)); };
+		return (K_EW * (lon - origin.longitude)); 
+	};
 	double gps_y(double lat) { 
 		//ROS_INFO("K_NS = %f", K_NS);
 		//ROS_INFO("lat = %f", lat);
 		//ROS_INFO("start lat = %f", origin.latitude);
-		return (K_NS * (lat - origin.latitude)); };
+		return (K_NS * (lat - origin.latitude)); 
+	};
 
   private:
     ros::Subscriber positionSub;
@@ -36,8 +39,7 @@ class odometry {
     double K_NS, K_EW;
 
     tf::TransformBroadcaster base_br;
-    tf::Transform t;
-    tf::Quaternion q;
+	geometry_msgs::TransformStamped t;
 
     geometry_msgs::Pose2D position;
 };
@@ -69,12 +71,17 @@ void odometry::position_callback(const vn300::Pose::ConstPtr &pos) {
 	position.y = gps_y(pos->position[0]);
 
     position.theta = pos->heading[0];
+	
+	t.header.stamp = ros::Time::now();
+	t.header.frame_id = "world";
+	t.child_frame_id = "ohm_base_link";
+	
+	t.transform.translation.x = position.x;
+  	t.transform.translation.y = position.y;
+  	t.transform.translation.z = 0.0;
+  	t.transform.rotation = tf::createQuaternionMsgFromYaw(DEG2RAD(position.theta));
 
-    t.setOrigin(tf::Vector3(position.x, position.y, 0.0));
-    q.setRPY(0, 0, DEG2RAD(position.theta));
-    t.setRotation(q);
-
-    base_br.sendTransform(tf::StampedTransform(t, ros::Time::now(), "world", "ohm_base_link"));
+    base_br.sendTransform(t);
 
 	pose.publish(position);
 }

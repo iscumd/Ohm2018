@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(helper_nodes)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -145,6 +145,11 @@ target_link_libraries(odometry ${catkin_LIBRARIES})
 add_executable(scan_to_xy src/scan_xy_node.cpp)
 add_dependencies(scan_to_xy ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scan_to_xy ${catkin_LIBRARIES})
+
+## odometry_readout
+add_executable(odometry_readout src/odometry_readout.cpp)
+add_dependencies(odometry_readout ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(odometry_readout ${catkin_LIBRARIES})
 
 #############
 ## Install ##

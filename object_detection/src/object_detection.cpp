@@ -5,7 +5,7 @@ object_detector::object_detector(ros::NodeHandle nh) : node(nh) {
 	node.param("forgivable", forgivable, 3);
 	node.param("max_point_distance", eps, 1.0); // meters
 	node.param("min_group_count", min_group_count, 4);
-	node.param("min_obstacle_distance", min_obstacle_distance, 100.0); // meters (?)
+	node.param("reaction_distance", min_obstacle_distance, 100.0); // meters (?)
 	node.param("base_frame", base_frame_id, std::string("base"));
 	node.param("reference_frame", ref_frame_id, std::string("world"));
 
@@ -14,95 +14,86 @@ object_detector::object_detector(ros::NodeHandle nh) : node(nh) {
 	//object_groups_pub = node.advertise<sensor_msgs::PointCloud>("object_groups", 1);
 	//object_markers_pub = node.advertise<visualization_msgs::Marker>("object_markers", 1);
 	range_pub = node.advertise<ohm_igvc_msgs::RangeArray>("ranges", 1);
-	skip_count = 15;
-	skipped = 0;
 }
 
 //*** MAIN FUNCTIONS ***//
 
 void object_detector::find_point_groups(const sensor_msgs::PointCloud::ConstPtr &pcl) {
-	if(skipped == 0) {
-		std::list<geometry_msgs::Point32> group, points(pcl->points.begin(), pcl->points.end());
-		std::vector<std::list<geometry_msgs::Point32>> groups;
-		groups.reserve(200);
+	std::list<geometry_msgs::Point32> group, points(pcl->points.begin(), pcl->points.end());
+	std::vector<std::list<geometry_msgs::Point32>> groups;
+	groups.reserve(200);
 
-		ROS_INFO("Iterating over point cloud:");
-		ROS_INFO("\tpcl.size() => %d", (int)points.size());
+	ROS_INFO("Iterating over point cloud:");
+	ROS_INFO("\tpcl.size() => %d", (int)points.size());
 
-		last_received_pcl = pcl->header.stamp;
-		pcl_frame = pcl->header.frame_id;
+	last_received_pcl = pcl->header.stamp;
+	pcl_frame = pcl->header.frame_id;
 
-		for(auto point = points.begin(), last_point = points.begin(); points.size() > min_group_count;) {
-			if(group.empty()) {
+	for(auto point = points.begin(), last_point = points.begin(); points.size() > min_group_count;) {
+		if(group.empty()) {
+			group.push_back(*point);
+			last_point = point;
+			point = find_next_point(point, points.end());
+			points.erase(last_point);
+		} else {
+			if(point != points.end()) {
 				group.push_back(*point);
 				last_point = point;
 				point = find_next_point(point, points.end());
 				points.erase(last_point);
 			} else {
-				if(point != points.end()) {
-					group.push_back(*point);
-					last_point = point;
-					point = find_next_point(point, points.end());
-					points.erase(last_point);
-				} else {
-					groups.push_back(group);
-					group.clear();
-					point = points.begin();
-				}
-			}	
-		}
-
-		int point_count = 0;
-
-		for(auto group = groups.begin(); group != groups.end(); ++group) {
-			for(auto point = group->begin(); std::distance(point, group->end()) > min_group_count;) {
-				group->insert(point, geometric::n_average(point, std::next(point,min_group_count)));	
-				if(std::distance(std::next(point, min_group_count), group->end()) < min_group_count) {
-					point = group->erase(point, group->end());
-				} else {			
-					point = group->erase(point, std::next(point, min_group_count));
-				}
+				groups.push_back(group);
+				group.clear();
+				point = points.begin();
 			}
+		}	
+	}
 
-			point_count += group->size();
-	
+	int point_count = 0;
+
+	for(auto group = groups.begin(); group != groups.end(); ++group) {
+		for(auto point = group->begin(); std::distance(point, group->end()) > min_group_count;) {
+			group->insert(point, geometric::n_average(point, std::next(point,min_group_count)));	
+			if(std::distance(std::next(point, min_group_count), group->end()) < min_group_count) {
+				point = group->erase(point, group->end());
+			} else {			
+				point = group->erase(point, std::next(point, min_group_count));
+			}
 		}
 
-		ROS_INFO("\tFound %d groups, consisting of %d points", (int)groups.size(), point_count);
+		point_count += group->size();
 
-		find_valid_ranges(groups);
-	} else if(skipped > skip_count) {
-		skipped = 0;
-	} else {
-		skipped++;
 	}
+
+	ROS_INFO("\tFound %d groups, consisting of %d points", (int)groups.size(), point_count);
+
+	find_valid_ranges(groups);
 }
 		
 void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Point32>> groups) {
 	auto prev_group = groups.end();
-	tf::StampedTransform tform;
 	ohm_igvc_msgs::RangeArray ranges;
 	ohm_igvc_msgs::Range range;
 
 	if(get_pose()) {
-		double last_dist = 0.0, last_angle = std::fmod((pose.heading - 135.0), 360.0), this_angle, this_dist;
+		double last_dist = 0.0, last_angle = circular_range::wrap((pose.heading - 135.0), 360.0), this_angle, this_dist;
 	
 		for(auto group = groups.begin(); group != groups.end(); ++group) {
 			for(auto point = group->begin(); point != group->end(); ++point) {
-				//ROS_INFO("point %d, group %d: (%f, %f)", (int)std::distance(group->begin(), point), (int)std::distance(groups.begin(), group), point->x, point->y);
+				ROS_INFO("point %d, group %d: (%f, %f)", (int)std::distance(group->begin(), point), (int)std::distance(groups.begin(), group), point->x, point->y);
 
 				this_angle = geometric::angular_distance(pose.position, point32_to_point(*point));
 				this_dist = geometric::distance(point32_to_point(*point), pose.position);
 
-				//ROS_INFO("@ %f deg, %f m", this_angle, this_dist);
+				ROS_INFO("\t@ %f deg, %f m", this_angle, this_dist);
 
 				if(this_dist > min_obstacle_distance) {
 					if(last_dist <= min_obstacle_distance) {						
-						range.start = (last_dist > 0.0 ? circular_range::average(this_angle, last_angle)) : last_angle;
+						range.start = (last_dist > 0.0 ? circular_range::average(this_angle, last_angle) : last_angle);
 						//ROS_INFO("Set range start = %f [%d]", range.start, (int)ranges.ranges.size());
 					} else {
 						if(std::next(group, 1) == groups.end() && std::next(point, 1) == group->end()) {
-							range.end = std::fmod((pose.heading + 135.0), 360.0);
+							range.end = circular_range::wrap((pose.heading + 135.0), 360.0);
 							//ROS_INFO("Set range end = %f [%d]\nPush back range (%f, %f) [%d]", range.end, (int)ranges.ranges.size(), range.start, range.end, (int)ranges.ranges.size());
 							ranges.ranges.push_back(range);
 						}
@@ -173,8 +164,8 @@ void object_detector::publish_obstacles_rviz(std::vector<std::list<geometry_msgs
 
 bool object_detector::get_pose() { // toss all the update code into one neat function
 	tf::StampedTransform tform;
-	if(pose_listener.waitForTransform(base_frame_id, ref_frame_id, ros::Time::now(), ros::Duration(0.15))) {
-		pose_listener.lookupTransform(base_frame_id, ref_frame_id, ros::Time(0), tform);
+	if(pose_listener.waitForTransform(ref_frame_id, base_frame_id, ros::Time::now(), ros::Duration(0.15))) {
+		pose_listener.lookupTransform(ref_frame_id, base_frame_id, ros::Time(0), tform);
 		pose.position.x = tform.getOrigin().x();
 		pose.position.y = tform.getOrigin().y();
 		pose.heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0; // convert to degrees and put into [0, 360)
