@@ -79,7 +79,7 @@ struct heading_control {
 			pose_listener.lookupTransform(ref_frame_id, base_frame_id, ros::Time(0), tform);
 			pose.position.x = tform.getOrigin().x();
 			pose.position.y = tform.getOrigin().y();
-			pose.heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0; // convert to degrees and put into [0, 360)
+			pose.heading = circular_range::wrap(tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi), 360.0); // convert to degrees and put into [0, 360)
 			return true;	
 		} 
 		
@@ -203,9 +203,16 @@ int main(int argc, char** argv) {
 	while(ros::ok() && target < targets.size()) {
 		ros::param::get("/drive_mode", control.drive_mode);
 		if(control.drive_mode == "manual") {
-			if(updatedDriveMode) updatedDriveMode = false;
+			if(updatedDriveMode) {
+				updatedDriveMode = false;
+				drive_command.linear.x = 0.0;
+				drive_command.angular.z = 0.0;
+				control.vel_pub.publish(drive_command);
+			}
+
 			ROS_INFO_THROTTLE(15, "Robot is in manual mode. Not testing.");
 			r.sleep();
+			
 			continue;
 		} else if(control.drive_mode == "auto" && !updatedDriveMode) {
 			updatedDriveMode = true;
@@ -257,7 +264,7 @@ int main(int argc, char** argv) {
 			}
 			*/
 			if(control.camera_enable) {
-				if(!control.turn_angles.turn_angles.empty() && std::fabs(desired_heading - control.pose.heading) < 60.0) {
+				if(!control.turn_angles.turn_angles.empty() && std::fabs(desired_heading - control.pose.heading) < 90.0) {
 					std::vector<double> best_angles;
 					best_angles.reserve(control.turn_angles.turn_angles.size());
 				
@@ -301,7 +308,7 @@ int main(int argc, char** argv) {
 			}
 
 			if(!rough_cmp::equals(pid_controller.get_target(), desired_heading, 2.0)) {
-				pid_controller.target(control.condition_target(desired_heading)); // if we don't have options, turn in place
+				pid_controller.target(control.condition_target(desired_heading));
 				ROS_INFO("\tSwitching heading");
 			}
 			

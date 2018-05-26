@@ -15,8 +15,10 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
   sensor_msgs
+  std_msgs
   tf
   vn300
+  visualization_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -150,6 +152,16 @@ target_link_libraries(scan_to_xy ${catkin_LIBRARIES})
 add_executable(odometry_readout src/odometry_readout.cpp)
 add_dependencies(odometry_readout ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(odometry_readout ${catkin_LIBRARIES})
+
+## test_broadcaster
+add_executable(test_broadcaster src/test_broadcaster.cpp)
+add_dependencies(test_broadcaster ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_broadcaster ${catkin_LIBRARIES})
+
+## test_listener
+add_executable(test_listener src/test_listener.cpp)
+add_dependencies(test_listener ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_listener ${catkin_LIBRARIES})
 
 #############
 ## Install ##
