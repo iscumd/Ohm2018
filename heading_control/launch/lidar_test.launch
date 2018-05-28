@@ -20,8 +20,6 @@
 	<param name="enable_gps" value="false" />
 	<param name="enable_lidar" value="true" />
 	<param name="enable_camera" value="false" />
-	<param name="lidar_data_rotation" value="-90.0" />
-	<param name="lidar_data_translation" value="0.0" />
 	<param name="max_linear" value="0.2" />
 	<param name="max_angular" value="0.15" />
 	<param name="base_frame" value="ohm_base_link" />

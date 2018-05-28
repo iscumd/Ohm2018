@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
 						} else {
 							best_angles.push_back(circular_range::direction(desired_heading, range->start) * circular_range::smallest_difference(desired_heading, circular_range::wrap(range->start + 5.0, 360.0)));
 							best_angles.push_back(circular_range::direction(desired_heading, range->end) * circular_range::smallest_difference(desired_heading, circular_range::wrap(range->end - 5.0, 360.0)));
-							ROS_INFO("\tDidn't find the heading. Finding closest angle instead");
+							ROS_INFO("\tDidn't find the heading here. Finding closest angle instead");
 						}
 					}
 					
