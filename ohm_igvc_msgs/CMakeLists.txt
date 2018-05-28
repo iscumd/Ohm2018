@@ -52,6 +52,9 @@ add_message_files(
    FILES
    Range.msg
    RangeArray.msg
+   Target.msg
+   TurnAngles.msg
+   Waypoint.msg
 )
 
 ## Generate services in the 'srv' folder

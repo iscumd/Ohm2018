@@ -57,7 +57,7 @@ void object_detector::find_point_groups(const sensor_msgs::PointCloud::ConstPtr 
 
 	for(auto group = groups.begin(); group != groups.end(); ++group) {
 		for(auto point = group->begin(); std::distance(point, group->end()) > min_group_count;) {
-			group->insert(point, average(point, std::next(point,min_group_count)));	
+			group->insert(point, geometric::n_average(point, std::next(point,min_group_count)));	
 			if(std::distance(std::next(point, min_group_count), group->end()) < min_group_count) {
 				point = group->erase(point, group->end());
 			} else {			
@@ -87,18 +87,18 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 		geometry_msgs::Point32 position;
 		position.x = tform.getOrigin().x();
 		position.y = tform.getOrigin().y();
-		double heading = quaternion_to_heading(tform.getRotation()) + 180.0; 
+		double heading = tf::getYaw(tform.getRotation()) * (180.0 / geometric::pi) + 180.0;
 
 		double last_dist = 0.0, last_angle, this_angle, this_dist;
 	
 		for(auto group = groups.begin(); group != groups.end(); ++group) {
 			for(auto point = group->begin(); point != group->end(); ++point) {
-				this_angle = angular_distance(position, *point);
-				this_dist = distance<geometry_msgs::Point32>(*point, position);
+				this_angle = geometric::angular_distance(position, *point);
+				this_dist = geometric::distance(*point, position);
 
 				if(this_dist > min_obstacle_distance) {
 					if(last_dist < min_obstacle_distance) {						
-						range.start = (last_dist > 0 ? circular_average(this_angle, last_angle) : this_angle);
+						range.start = (last_dist > 0 ? circular_range::average(this_angle, last_angle) : this_angle);
 					} else {
 						range.end = this_angle;
 						if(std::next(group, 1) == groups.end() && std::next(point, 1) == group->end()) {
@@ -106,7 +106,7 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 						}
 					}
 				} else {
-					range.end = (last_dist > 0 ? circular_average(this_angle, last_angle) : this_angle);
+					range.end = (last_dist > 0 ? circular_range::average(this_angle, last_angle) : this_angle);
 					ranges.ranges.push_back(range);
 				} 
 				
@@ -177,19 +177,13 @@ geometry_msgs::Point object_detector::point32_to_point(geometry_msgs::Point32 p)
 	return q;
 };
 
-double object_detector::circular_average(double a, double b) {
-	// shamelessly stolen from stackoverflow: 
-	// https://stackoverflow.com/questions/491738/how-do-you-calculate-the-average-of-a-set-of-circular-data
-	double diff = (fmod(( a - b + 540.0), 360.0)) - 180.0; 
-	return fmod((360.0 + b + (diff / 2.0)), 360.0);
-};
 
 template <typename point_iterator>
 point_iterator object_detector::find_next_point(point_iterator current, point_iterator end) {
 	int forgiven = 0;
 	point_iterator next_point = std::next(current, 1);
 	while(next_point != end) {
-		if(distance<geometry_msgs::Point32>(*next_point, *current) < eps) {
+		if(geometric::distance<geometry_msgs::Point32>(*next_point, *current) < eps) {
 			return next_point;
 		} else if(forgiven < forgivable) {
 			next_point++;
@@ -200,33 +194,4 @@ point_iterator object_detector::find_next_point(point_iterator current, point_it
 	}
 
 	return end;
-};
-
-template<typename point_iterator>
-typename point_iterator::value_type object_detector::average(point_iterator start, point_iterator end) {
-	typename point_iterator::value_type sum;
-	sum.x = 0;
-	sum.y = 0;
-	int count = 0;
-
-	for(point_iterator current = start; current != end; ++current) {
-		sum.x += current->x;
-		sum.y += current->y;
-		count++;
-	}
-	
-	sum.x /= count;
-	sum.y /= count;
-	
-	return sum;
 }
-
-double object_detector::quaternion_to_heading(tf::Quaternion q) {
-	//	ROS_INFO("Euler Convesion"); Shamelessly taken from wikipedia
-	double ysqr = q.getAxis().y() * q.getAxis().y(), zsqr = q.getAxis().z() * q.getAxis().z();
-
-	// yaw (z-axis rotation)
-	double t0 = +2.0f * (q.getAxis().w() * q.getAxis().z() + q.getAxis().x() * q.getAxis().y());
-	double t1 = +1.0f - 2.0f * (ysqr + zsqr);
-	return std::atan2(t0, t1) * (180.0 / boost::math::double_constants::pi);
-};
