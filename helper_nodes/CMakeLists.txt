@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(whiteline_detection)
+project(helper_nodes)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,8 +8,15 @@ project(whiteline_detection)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  geometry_msgs
+  laser_geometry
   ohm_igvc_msgs
+  ohm_igvc_srvs
   roscpp
+  roslib
+  sensor_msgs
+  tf
+  vn300
 )
 
 ## System dependencies are found with CMake's conventions
@@ -69,7 +76,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   ohm_igvc_msgs
+#   geometry_msgs#   ohm_igvc_msgs#   sensor_msgs
 # )
 
 ################################################
@@ -103,8 +110,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES whiteline_detection
-#  CATKIN_DEPENDS ohm_igvc_msgs roscpp
+#  LIBRARIES helper_nodes
+#  CATKIN_DEPENDS geometry_msgs laser_geometry ohm_igvc_msgs ohm_igvc_srvs roscpp sensor_msgs tf vn300
 #  DEPENDS system_lib
 )
 
@@ -115,39 +122,29 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
-## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/whiteline_detection.cpp
-# )
+## format for new cpp's
+# add_executable(<executable_name> src/<executable_source_files>)
+# add_dependencies(<executable_name> ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(<executable_name> ${catkin_LIBRARIES})
 
-## Add cmake target dependencies of the library
-## as an example, code may need to be generated before libraries
-## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+## waypoint selection
+add_executable(waypoint_selection src/waypoint_selection.cpp)
+add_dependencies(waypoint_selection ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(waypoint_selection ${catkin_LIBRARIES})
 
-## Declare a C++ executable
-## With catkin_make all packages are built within a single CMake context
-## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/whiteline_detection_node.cpp)
+## odometry
+add_executable(odometry src/odometry.cpp)
+add_dependencies(odometry ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(odometry ${catkin_LIBRARIES})
 
-## Rename C++ executable without prefix
-## The above recommended prefix causes long target names, the following renames the
-## target back to the shorter version for ease of user use
-## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
-# set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
-
-## Add cmake target dependencies of the executable
-## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+## scan_to_xy
+add_executable(scan_to_xy src/scan_xy_node.cpp)
+add_dependencies(scan_to_xy ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(scan_to_xy ${catkin_LIBRARIES})
 
 #############
 ## Install ##
@@ -189,7 +186,7 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_whiteline_detection.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_helper_nodes.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include <ros/ros.h>
 #include <ros/console.h>
+#include <ros/package.h>
 #include <ohm_igvc_msgs/TurnAngles.h>
 #include <string>
 
@@ -30,6 +31,8 @@ int main()
     ros::init(argc, argv, "camera_turn_angle");
     ros::NodeHandle n;
     ros::Publisher camera_angles = n.advertise<ohm_igvc_msgs::TurnAngles>("camera_turn_angle", 1);
+
+	std::string mask_path = ros::package::getPath("white_line_detection") + std::string("/../data/masks/");
 
     // ROS Params
     std::string cam_device;
@@ -67,6 +70,7 @@ int main()
     pointArray[8] = cv::Point2f(1263.0, 186.0);
     pointArray[9] = cv::Point2f(1245.0, 346.5);
 
+<<<<<<< HEAD:whiteline_detection/src/white_line_detection.cpp
     mask[0] = cv::imread("0.png", 0); // left most turn
     mask[1] = cv::imread("1.png", 0);
     mask[2] = cv::imread("2.png", 0);
@@ -77,6 +81,31 @@ int main()
     mask[7] = cv::imread("7.png", 0);
     mask[8] = cv::imread("8.png", 0);
     mask[9] = cv::imread("9.png", 0); // right most turn
+=======
+    for (size_t i = 0; i < NUM_MASKS; i++)
+    {
+        mask_size[i] = cv::countNonZero(mask[i]);
+        if (i < NUM_MASKS / 2)
+        {
+            mask_turn_angles[i] = -getTurnAngles(base_point, pointArray[i]);
+        }
+        else
+        {
+            mask_turn_angles[i] = getTurnAngles(base_point, pointArray[i]);
+        }
+    }
+
+    mask[0] = cv::imread((mask_path + std::string("0.png").c_str()), 0); // left most turn
+    mask[1] = cv::imread((mask_path + std::string("1.png").c_str()), 0);
+    mask[2] = cv::imread((mask_path + std::string("2.png").c_str()), 0);
+    mask[3] = cv::imread((mask_path + std::string("3.png").c_str()), 0);
+    mask[4] = cv::imread((mask_path + std::string("4.png").c_str()), 0);
+    mask[5] = cv::imread((mask_path + std::string("5.png").c_str()), 0);
+    mask[6] = cv::imread((mask_path + std::string("6.png").c_str()), 0);
+    mask[7] = cv::imread((mask_path + std::string("7.png").c_str()), 0);
+    mask[8] = cv::imread((mask_path + std::string("8.png").c_str()), 0);
+    mask[9] = cv::imread((mask_path + std::string("9.png").c_str()), 0); // right most turn
+>>>>>>> 7143cbd3c8e6744ed85afdeab48e2d454d7a05c9:white_line_detection/src/white_line_detection.cpp
 
     double mask_size[NUM_MASKS];
     for (size_t i = 0; i < NUM_MASKS; i++)
