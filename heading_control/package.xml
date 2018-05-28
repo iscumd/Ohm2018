@@ -54,16 +54,19 @@
   <build_depend>ohm_igvc_msgs</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>tf</build_depend>
+  <build_depend>helper_nodes</build_depend>
   <build_export_depend>boost</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>ohm_igvc_msgs</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>tf</build_export_depend>
+  <build_export_depend>helper_nodes</build_export_depend>
   <exec_depend>boost</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>ohm_igvc_msgs</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>tf</exec_depend>
+  <exec_depend>helper_nodes</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

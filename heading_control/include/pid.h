@@ -62,6 +62,8 @@ class PID {
 			goal = t;
 			reset();
 		 };
+
+		double get_target() { return goal; };
 		
 		void reset() { // sets errors to zero
 			p_error = i_error = d_error = 0;

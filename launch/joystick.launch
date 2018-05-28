@@ -1,0 +1,22 @@
+<launch>
+	<!-- Joystick and Manual Control-->
+	<remap from="joy" to="/ohm/joy" />
+	<param name="~dev" value="/dev/input/js1" />
+	<node pkg="joy" type="joy_node" name="joy_node" />
+	<remap from="joystick/xinput" to="/ohm/xinput" />
+	<node pkg="isc_joy" type="joystick_xbox360" name="joystick_xbox360" />
+	<remap from="/manual_control" to="/ohm/manual_control" />
+	<param name="manual_control_speed_multiplier" value="0.3" />
+	<param name="manual_control_turn_multiplier" value="0.2" />
+	<node pkg="isc_joy" type="manual_control" name="manual_control" />
+
+	<!-- Drive Mode Control -->
+	<remap from="motors/wheel_speeds" to="/ohm/wheel_speeds" />
+	<remap from="joystick/xbox360" to="/ohm/xinput" />	
+	<param name="arduino_serial_port" value="/dev/ttyACM1" />
+	<node pkg="drive_mode_control" type="drive_mode_control" name="ohm_drive_mode_control" />
+
+	<!-- Motor Controller -->
+	<param name="serial_port" value="/dev/ttyACM0" />
+	<node pkg="isc_roboteq_mdc2460" type="roboteq_mdc2460" name="roboteq_mdc2460" />
+</launch>

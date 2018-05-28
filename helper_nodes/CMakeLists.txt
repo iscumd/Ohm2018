@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(helper_nodes)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -15,8 +15,10 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
   sensor_msgs
+  std_msgs
   tf
   vn300
+  visualization_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,9 +111,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+   INCLUDE_DIRS include
 #  LIBRARIES helper_nodes
-#  CATKIN_DEPENDS geometry_msgs laser_geometry ohm_igvc_msgs ohm_igvc_srvs roscpp sensor_msgs tf vn300
+   CATKIN_DEPENDS geometry_msgs laser_geometry ohm_igvc_msgs ohm_igvc_srvs roscpp sensor_msgs tf vn300
 #  DEPENDS system_lib
 )
 
@@ -122,7 +124,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
+  include/helper_nodes
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -146,6 +148,21 @@ add_executable(scan_to_xy src/scan_xy_node.cpp)
 add_dependencies(scan_to_xy ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scan_to_xy ${catkin_LIBRARIES})
 
+## odometry_readout
+add_executable(odometry_readout src/odometry_readout.cpp)
+add_dependencies(odometry_readout ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(odometry_readout ${catkin_LIBRARIES})
+
+## test_broadcaster
+add_executable(test_broadcaster src/test_broadcaster.cpp)
+add_dependencies(test_broadcaster ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_broadcaster ${catkin_LIBRARIES})
+
+## test_listener
+add_executable(test_listener src/test_listener.cpp)
+add_dependencies(test_listener ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_listener ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
@@ -168,11 +185,11 @@ target_link_libraries(scan_to_xy ${catkin_LIBRARIES})
 # )
 
 ## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 # install(FILES
