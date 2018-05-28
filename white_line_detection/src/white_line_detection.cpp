@@ -26,7 +26,7 @@ double getTurnAngles(cv::Point p1, cv::Point p2)
     return theta;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     ros::init(argc, argv, "camera_turn_angle");
     ros::NodeHandle n;
@@ -36,12 +36,12 @@ int main()
 
     // ROS Params
     std::string cam_device;
-    n.param("device", cam_device, "/dev/video0");
+    n.param("device", cam_device, std::string("/dev/video0"));
 
     std::string camera_frame;
-    n.param("camera_frame", camera_frame, "camera");
+    n.param("camera_frame", camera_frame, std::string("camera"));
 
-    int mask_threshold;
+    double mask_threshold;
     n.param("intersection_threshold", mask_threshold, 0.5);
 
     bool debug;
@@ -77,7 +77,6 @@ int main()
         mask[i] = cv::imread(file_name, 0);
         cropped_mask[i] = mask[i](ROI);
         mask_size[i] = cv::countNonZero(mask[i]);
-        
         if (i < NUM_MASKS / 2)
         {
             mask_turn_angles[i] = -getTurnAngles(base_point, pointArray[i]);
@@ -164,7 +163,7 @@ int main()
 
             cv::bitwise_and(binary_image, cropped_mask[i], anding);
             intersections = (cv::countNonZero(anding) / mask_size[i]) * 100;
-
+          
             if (intersections < mask_threshhold)
             {
                 msg.turn_angles.push_back(mask_turn_angles[i]);
