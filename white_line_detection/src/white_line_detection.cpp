@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     n.param("intersection_threshold", mask_threshold, 0.5);
 
     bool debug;
-    n.param("debug value", debug, false);
+    n.param("debug", debug, false);
 
 #pragma region start
     cv::Mat mask[NUM_MASKS], cropped_mask[NUM_MASKS];
