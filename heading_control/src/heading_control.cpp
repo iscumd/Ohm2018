@@ -239,6 +239,8 @@ int main(int argc, char** argv) {
 				bool hit_heading = rough_cmp::equals(desired_heading, control.goal.heading, 3.0);
 
 				if(hit_waypoint && hit_heading) {
+					ROS_INFO("HIT Target #%d: (%f, %f) @ %f | Actual: (%f, %f) @ %f", control.waypoint_id, control.goal.position.x, control.goal.position.y, control.goal.heading, control.pose.position.x, control.pose.position.y, control.pose.heading);				
+			
 					if(!control.et_go_home && !control.get_next_waypoint()) {
 						control.et_go_home = true;
 						control.goal = control.start;
