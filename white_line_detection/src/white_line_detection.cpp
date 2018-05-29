@@ -127,9 +127,6 @@ int main(int argc, char **argv)
     std::vector<cv::Point2f> quad_pts;
     std::vector<cv::Point2f> squre_pts;
 
-    std::vector<cv::Point2f> quad_pts{Q1, Q2, Q3, Q4};
-    std::vector<cv::Point2f> squre_pts{R1, R2, R3, R4};
-
     cv::Mat transmtx = cv::getPerspectiveTransform(quad_pts, squre_pts);
 
     cv::Mat transformed = cv::Mat::zeros(ohm_webcam.get(CV_CAP_PROP_FRAME_HEIGHT), ohm_webcam.get(CV_CAP_PROP_FRAME_WIDTH), CV_8UC3);
@@ -164,7 +161,7 @@ int main(int argc, char **argv)
             cv::bitwise_and(binary_image, cropped_mask[i], anding);
             intersections = (cv::countNonZero(anding) / mask_size[i]) * 100;
           
-            if (intersections < mask_threshhold)
+            if (intersections < mask_threshold)
             {
                 msg.turn_angles.push_back(mask_turn_angles[i]);
             }
