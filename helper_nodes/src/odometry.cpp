@@ -68,8 +68,8 @@ odometry::odometry() {
 }
 
 void odometry::position_callback(const vn300::Pose::ConstPtr &pos) {
-    position.x = gps_x(pos->position[1]);
-	position.y = gps_y(pos->position[0]);
+    position.y = gps_x(pos->position[1]);
+	position.x = gps_y(pos->position[0]);
 
     position.theta = pos->heading[0];
 	
