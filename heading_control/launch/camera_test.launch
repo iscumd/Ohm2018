@@ -1,0 +1,46 @@
+<launch>
+	<!-- GPS -->
+	<remap from="pose" to="/ohm/raw_pose" />
+	<remap from="velocities" to="/ohm/velocity" />
+	<remap from="status" to="/ohm/gps_status" />
+	<include file="$(find vn300)/launch/vn300.launch" />
+
+	<!-- Odometry -->
+	<remap from="odom" to="/ohm/odom" />
+	<include file="$(find helper_nodes)/launch/odometry.launch" />
+
+	<!-- Heading Control -->
+	<remap from="auto_control" to="/ohm/auto_control" />
+	<remap from="lidar" to="/ohm/ranges" />
+	<remap from="camera" to="/ohm/camera" />
+	<include file="$(find heading_control)/launch/heading.launch">
+		<arg name="using_camera" value="true" />
+	</include>
+
+	<!-- White line detection -->
+	<remap from="camera_turn_angles" to="/ohm/camera" />
+	<param name="device" value="/dev/video1" />
+	<param name="debug" value="true" />
+	<node pkg="white_line_detection" type="white_line_detection" name="white_line_detection" />
+	
+	<!-- Joystick and Manual Control-->
+	<remap from="joy" to="/ohm/joy" />
+	<param name="~dev" value="/dev/input/js1" />
+	<node pkg="joy" type="joy_node" name="joy_node" />
+	<remap from="joystick/xinput" to="/ohm/xinput" />
+	<node pkg="isc_joy" type="joystick_xbox360" name="joystick_xbox360" />
+	<remap from="/manual_control" to="/ohm/manual_control" />
+	<param name="manual_control_speed_multiplier" value="0.3" />
+	<param name="manual_control_turn_multiplier" value="0.2" />
+	<node pkg="isc_joy" type="manual_control" name="manual_control" />
+
+	<!-- Drive Mode Control -->
+	<remap from="motors/wheel_speeds" to="/ohm/wheel_speeds" />
+	<remap from="joystick/xbox360" to="/ohm/xinput" />	
+	<param name="arduino_serial_port" value="/dev/ttyACM1" />
+	<node pkg="drive_mode_control" type="drive_mode_control" name="ohm_drive_mode_control" />
+
+	<!-- Motor Controller -->
+	<param name="serial_port" value="/dev/ttyACM0" />
+	<node pkg="isc_roboteq_mdc2460" type="roboteq_mdc2460" name="roboteq_mdc2460" />
+</launch>

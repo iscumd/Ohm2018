@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     n.param("debug", debug, false);
 
 #pragma region start
-    cv::Mat mask[NUM_MASKS], cropped_mask[NUM_MASKS];
+    cv::Mat mask[NUM_MASKS];
     cv::Mat anding, input, hsv, binary_image, cropped_region;
     double mask_size[NUM_MASKS];
 
@@ -85,8 +85,7 @@ int main(int argc, char **argv)
         std::string file_number = std::to_string(i);
         std::string file_name = mask_path + file_number + ".png";
         mask[i] = cv::imread(file_name, 0);
-        cropped_mask[i] = mask[i](ROI);
-        mask_size[i] = cv::countNonZero(cropped_mask[i]);
+        mask_size[i] = cv::countNonZero(mask[i]);
 
     }
 
@@ -157,7 +156,7 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < NUM_MASKS; i++)
         {
             intersections = 0;
-            cv::bitwise_and(binary_image, cropped_mask[i], anding);
+            cv::bitwise_and(binary_image, mask[i], anding);
             intersections = (cv::countNonZero(anding) / mask_size[i]) * 100;
           
             if (intersections < mask_threshold)
@@ -172,7 +171,7 @@ int main(int argc, char **argv)
                 cv::imshow("WARPED", cropped_region);
                 cv::imshow("BINARY", binary_image);
                 cv::imshow("HSV", hsv);
-                cv::imshow("MASK", cropped_mask[i]);
+                cv::imshow("MASK", mask[i]);
                 cv::imshow("OVERLAP", anding);
                 std::cout << '[' << i << "]: " << intersections << '%' << std::endl;
             }
