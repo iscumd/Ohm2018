@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 	ros::Publisher ranges_end = node.advertise<visualization_msgs::MarkerArray>("ranges_end", 1); 
 	ros::Publisher pose_and_bounds = node.advertise<visualization_msgs::MarkerArray>("pose_and_bounds", 1);
 
-	node.param("base_frame", base_frame_id, std::string("base"));
+	node.param("base_frame", base_frame_id, std::string("ohm_base_link"));
 	node.param("reference_frame", ref_frame_id, std::string("world"));
 
 	tf::TransformListener listener;

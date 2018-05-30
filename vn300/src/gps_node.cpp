@@ -297,14 +297,14 @@ vn300_node::vn300_node() :
 	int status_hz = 20;
 
 	// params
-	node.param("device", device, device); // for roslaunch files
-	node.param("serial_rate", rate, rate);
-	node.param("pose_refresh_rate", pose_hz, pose_hz);
-	node.param("velocity_refresh_rate", vel_hz, vel_hz);
-	node.param("status_refresh_rate", status_hz, status_hz);
+	ros::NodeHandle nh_private("~");
+	nh_private.param("device", device, device); // for roslaunch files
+	nh_private.param("serial_rate", rate, rate);
+	nh_private.param("pose_refresh_rate", pose_hz, pose_hz);
+	nh_private.param("velocity_refresh_rate", vel_hz, vel_hz);
+	nh_private.param("status_refresh_rate", status_hz, status_hz);
 	
 	// setup
-	
 	try {
 		sensor.connect(device, rate); // tried to prevent it from aborting, but couldn't find a workaround.
 	} catch(vn::not_found &e) {}

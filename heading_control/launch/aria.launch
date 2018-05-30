@@ -21,8 +21,7 @@
 	<remap from="scan" to="/ohm/scan" />
 	<remap from="scan_to_xy_out" to="/ohm/pcl" />
 	<param name="use_tf" value="true" />
-	<param name="lidar_data_rotation" value="-90.0" />
-	<param name="lidar_data_translation" value="0.16" />
+	<param name="use_sim" value="true" />
 	<node pkg="helper_nodes" type="scan_to_xy" name="scan_to_xy" />
 	<remap from="ranges" to="/ohm/ranges" />
 	<param name="forgivable" value="4" />
@@ -31,7 +30,7 @@
 	<param name="reaction_distance" value="1.8" />
 	<node pkg="object_detection" name="object_detection" type="object_detection_node" />
 	
-	<!-- Joystick and Manual Control-->https://github.com/ros-perception/laser_geometrhttps://github.com/ros-perception/laser_geometry/blob/indigo-devel/src/laser_geometry.cpphttps://github.com/ros-perception/laser_geometry/blob/indigo-devel/src/laser_geometry.cppy/blob/indigo-devel/src/laser_geometry.cpp
+	<!-- Joystick and Manual Control-->
 	<remap from="joy" to="/ohm/joy" />
 	<param name="~dev" value="/dev/input/js1" />
 	<node pkg="joy" type="joy_node" name="joy_node" />
@@ -45,4 +44,9 @@
 	<!-- ROSAria -->
 	<param name="/RosAria/publish_aria_lasers" value="true" />
 	<node pkg="rosaria" type="RosAria" name="RosAria" />
+
+	<!-- ROSBridge -->
+	<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"> 
+    	<arg name="port" value="9090"/>
+ 	</include>
 </launch>

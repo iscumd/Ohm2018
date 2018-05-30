@@ -67,8 +67,8 @@ struct scan_transformer {
 		sensor_msgs::LaserScan scan = *scan_in;
 
 		if(use_sim) {
-			scan.angle_min = DEG2RAD(90.0);
-			scan.angle_max = DEG2RAD(-90.0);
+			scan.angle_min = DEG2RAD(-90.0);
+			scan.angle_max = DEG2RAD(90.0);
 		}
   
    		sensor_msgs::PointCloud cloud;
