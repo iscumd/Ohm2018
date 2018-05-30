@@ -48,9 +48,10 @@ class odometry {
 odometry::odometry() {
 	K_NS = 111120.00;
 
-	node.param("K_NS", K_NS, K_NS);
-    node.param("origin_latitude", origin.latitude, 0.0);
-    node.param("origin_longitude", origin.longitude, 0.0);
+	ros::NodeHandle nh_private("~");
+	nh_private.param("K_NS", K_NS, K_NS);
+    nh_private.param("origin_latitude", origin.latitude, 0.0);
+    nh_private.param("origin_longitude", origin.longitude, 0.0);
 
 	K_EW = K_NS * std::cos(DEG2RAD(origin.latitude));
 
@@ -88,8 +89,8 @@ void odometry::position_callback(const vn300::Pose::ConstPtr &pos) {
 }
 
 bool odometry::convert_callback(ohm_igvc_srvs::coordinate_convert::Request &rq, ohm_igvc_srvs::coordinate_convert::Response &rp) {
-	rp.coordinate.x = gps_x(rq.coordinate.longitude);
-	rp.coordinate.y = gps_y(rq.coordinate.latitude);
+	rp.coordinate.y = gps_x(rq.coordinate.longitude);
+	rp.coordinate.x = gps_y(rq.coordinate.latitude);
 
 	return true;
 }

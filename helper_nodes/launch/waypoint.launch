@@ -1,0 +1,6 @@
+<launch>
+	<arg name="nav_file" default="gps_test.txt" />
+	<node pkg="helper_nodes" type="waypoint_selection" name="waypoint_selection">
+		<param name="navigation_file" value="$(find helper_nodes)/../data/targets/$(arg nav_file)" />
+	</node>
+</launch>

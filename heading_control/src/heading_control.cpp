@@ -30,7 +30,7 @@
 #define HEADING_MIN -180.0
 
 struct heading_control {
-	heading_control(ros::NodeHandle nh) {
+	heading_control() {
 		waypoint_srv = node.serviceClient<ohm_igvc_srvs::waypoint>("waypoint");
 		coordinate_convert = node.serviceClient<ohm_igvc_srvs::coordinate_convert>("coordinate_convert");
 		lidar_sub = node.subscribe(std::string("lidar"), 1, &heading_control::update_lidar, this);
@@ -38,29 +38,31 @@ struct heading_control {
 		vel_pub = node.advertise<geometry_msgs::Twist>("auto_control", 1);
 
 		// get internal params
-		node.param("waypoint_hit", waypoint_hit_thresh, 1.0);
-		node.param("turn_to_heading", turn_to_heading_thresh, 90.0);
-		node.param("max_linear", max_linear_speed, 0.3);
-		node.param("max_angular", max_angular_speed, 0.25);
-		node.param("drive_mode", drive_mode, std::string("manual"));
-		node.param("enable_gps", gps_enable, true);
-		node.param("enable_lidar", lidar_enable, true);
-		node.param("enable_camera", camera_enable, true);
-		node.param("enable_pid_debug", pid_debug, false);
+		ros::NodeHandle nh_private("~");
+
+		nh_private.param("waypoint_hit", waypoint_hit_thresh, 1.0);
+		nh_private.param("turn_to_heading", turn_to_heading_thresh, 90.0);
+		nh_private.param("max_linear", max_linear_speed, 0.3);
+		nh_private.param("max_angular", max_angular_speed, 0.25);
+		nh_private.param("drive_mode", drive_mode, std::string("manual"));
+		nh_private.param("enable_gps", gps_enable, true);
+		nh_private.param("enable_lidar", lidar_enable, true);
+		nh_private.param("enable_camera", camera_enable, true);
+		nh_private.param("enable_pid_debug", pid_debug, false);
 
 		// get pid params
-		node.param("kP", kP, 0.0);
-		node.param("kI", kI, 0.0);
-		node.param("kD", kD, 0.0);
-		node.param("max_integral_error", max_i_err, 0.5);
+		nh_private.param("kP", kP, 0.0);
+		nh_private.param("kI", kI, 0.0);
+		nh_private.param("kD", kD, 0.0);
+		nh_private.param("max_integral_error", max_i_err, 0.5);
 
 		if(kP != 0.0) PID_type |= PID::terms_t::P;
 		if(kI != 0.0) PID_type |= PID::terms_t::I;
 		if(kD != 0.0) PID_type |= PID::terms_t::D;
 
 		// tf params
-		node.param("base_frame", base_frame_id, std::string("base"));
-		node.param("reference_frame", ref_frame_id, std::string("world"));
+		nh_private.param("base_frame", base_frame_id, std::string("base"));
+		nh_private.param("reference_frame", ref_frame_id, std::string("world"));
 
 		waypoint_id = 0;
 	};
@@ -114,10 +116,12 @@ struct heading_control {
 		
 		if(diff > 180.0 && target > supp) {
 			target -= 360.0;
-			turn_state = 1; // turning left
+			if(!force_turn_in_place) turn_state = 1; // turning left
+			else turn_state = 3;
 		} else if(diff > 180.0 && target < supp) {
 			target += 360.0;
-			turn_state = 2; // turning right
+			if(!force_turn_in_place) turn_state = 2; // turning right
+			else turn_state = 3;
 		} else if(diff <= 180.0 && diff > 90.0) {
 			turn_state = 3; // turning in place
 		} else {
@@ -149,6 +153,7 @@ struct heading_control {
 	bool camera_enable;
 	bool pid_debug;
 	bool et_go_home;
+	bool force_turn_in_place;
 	int turn_state; // 0 = NORMAL TURN, 1 = LEFT CROSSING BOUNDARY, 2 = RIGHT CROSSING BOUNDARY, 3 = IN_PLACE
 	ohm_igvc_msgs::Waypoint start;
 	ohm_igvc_msgs::RangeArray lidar_ranges;
@@ -182,7 +187,7 @@ int main(int argc, char** argv) {
 	
 	ros::NodeHandle nh;
 
-	heading_control control(nh);
+	heading_control control;
 
 	geometry_msgs::Twist drive_command;
 	drive_command.linear.x = STOP_VEL;
@@ -233,14 +238,15 @@ int main(int argc, char** argv) {
 			}
 
 			if(control.gps_enable) {
-				desired_heading = geometric::angular_distance(control.pose.position, control.goal.position);
+				desired_heading = circular_range::wrap(desired_heading + geometric::angular_distance(control.pose.position, control.goal.position), 360.0);
 
 				bool hit_waypoint = rough_cmp::lt_eq(geometric::distance(control.pose.position, control.goal.position), control.waypoint_hit_thresh, 0.1);
 				bool hit_heading = rough_cmp::equals(desired_heading, control.goal.heading, 3.0);
 
 				if(hit_waypoint && hit_heading) {
 					ROS_INFO("HIT Target #%d: (%f, %f) @ %f | Actual: (%f, %f) @ %f", control.waypoint_id, control.goal.position.x, control.goal.position.y, control.goal.heading, control.pose.position.x, control.pose.position.y, control.pose.heading);				
-			
+					control.force_turn_in_place = false;			
+
 					if(!control.et_go_home && !control.get_next_waypoint()) {
 						control.et_go_home = true;
 						control.goal = control.start;
@@ -252,7 +258,7 @@ int main(int argc, char** argv) {
 						break;
 					}
 				} else if(hit_waypoint) {
-					drive_command.linear.x = 0.0;
+					control.force_turn_in_place = true;
 					desired_heading = control.goal.heading;
 				}
 			}

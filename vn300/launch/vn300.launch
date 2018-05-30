@@ -1,0 +1,10 @@
+<launch>
+	<arg name="dev" default="/dev/ttyUSB0" />
+	<node pkg="vn300" type="vn300_node" name="vn300_node">
+		<param name="device" value="$(arg dev)" />
+		<param name="serial_rate" value="115200" />
+		<param name="pose_refresh_rate" value="10" />
+		<param name="velocity_refresh_rate" value="8" />
+		<param name="status_refresh_reate" value="20" />
+	</node>
+</launch>
