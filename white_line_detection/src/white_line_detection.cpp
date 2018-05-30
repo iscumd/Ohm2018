@@ -7,7 +7,7 @@
 #include <ohm_igvc_msgs/TurnAngles.h>
 #include <string>
 
-#define NUM_MASKS 10
+#define NUM_MASKS 21
 
 void on_low_H_thresh_trackbar(int, void *) {}
 void on_high_H_thresh_trackbar(int, void *) {}
@@ -50,25 +50,35 @@ int main(int argc, char **argv)
 #pragma region start
     cv::Mat mask[NUM_MASKS], cropped_mask[NUM_MASKS];
     cv::Mat anding, input, hsv, binary_image, cropped_region;
-    double mask_turn_angles[NUM_MASKS];
     double mask_size[NUM_MASKS];
 
     cv::Rect ROI = cv::Rect(230, 0, 820, 468);
 
     cv::VideoCapture ohm_webcam(cam_device, cv::CAP_V4L); // video1 is external cam
+    double intersections;
+    double mask_turn_angles[NUM_MASKS];
+    mask_turn_angles[0] = -60;
+    mask_turn_angles[1] = -53.487;
+    mask_turn_angles[2] = -47.156;
+    mask_turn_angles[3] = -40.975;
+    mask_turn_angles[4] = -34.915;
+    mask_turn_angles[5] = -28.955;
+    mask_turn_angles[6] = -23.074;
+    mask_turn_angles[7] = -17.254;
+    mask_turn_angles[8] = -11.478;
+    mask_turn_angles[9] = -5.732;
+    mask_turn_angles[10] = 0;
+    mask_turn_angles[11] = 5.732;
+    mask_turn_angles[12] = 11.478;
+    mask_turn_angles[13] = 17.254;
+    mask_turn_angles[14] = 23.074;
+    mask_turn_angles[15] = 28.955;
+    mask_turn_angles[16] = 34.915;
+    mask_turn_angles[17] = 40.975;
+    mask_turn_angles[18] = 47.156;
+    mask_turn_angles[19] = 53.487;
+    mask_turn_angles[20] = 60;
 
-    cv::Point pointArray[NUM_MASKS];
-    cv::Point base_point = cv::Point2f(616.5, 553.5);
-    pointArray[0] = cv::Point2f(91.5, 349.5);
-    pointArray[1] = cv::Point2f(27.0, 193.5);
-    pointArray[2] = cv::Point2f(22.5, 7.5);
-    pointArray[3] = cv::Point2f(349.5, 7.5);
-    pointArray[4] = cv::Point2f(604.5, 6.0);
-    pointArray[5] = cv::Point2f(775.5, 9.0);
-    pointArray[6] = cv::Point2f(960.0, 9.0);
-    pointArray[7] = cv::Point2f(1266.0, 36.0);
-    pointArray[8] = cv::Point2f(1263.0, 186.0);
-    pointArray[9] = cv::Point2f(1245.0, 346.5);
 
     for (size_t i = 0; i < NUM_MASKS; i++)
     {
@@ -76,15 +86,8 @@ int main(int argc, char **argv)
         std::string file_name = mask_path + file_number + ".png";
         mask[i] = cv::imread(file_name, 0);
         cropped_mask[i] = mask[i](ROI);
-        mask_size[i] = cv::countNonZero(mask[i]);
-        if (i < NUM_MASKS / 2)
-        {
-            mask_turn_angles[i] = -getTurnAngles(base_point, pointArray[i]);
-        }
-        else
-        {
-            mask_turn_angles[i] = getTurnAngles(base_point, pointArray[i]);
-        }
+        mask_size[i] = cv::countNonZero(cropped_mask[i]);
+
     }
 
     cv::namedWindow("HSV", cv::WINDOW_AUTOSIZE);
@@ -108,10 +111,10 @@ int main(int argc, char **argv)
     cv::createTrackbar("High Sat", "TRACKBARS", &high_S, 255, on_high_S_thresh_trackbar);
     cv::createTrackbar("High Val", "TRACKBARS", &high_V, 255, on_high_V_thresh_trackbar);
 
-    cv::Point Q1 = cv::Point2f(507, 236); //top left pixel coordinate
-    cv::Point Q2 = cv::Point2f(755, 237); //top right
-    cv::Point Q3 = cv::Point2f(802, 389); //bottom right
-    cv::Point Q4 = cv::Point2f(458, 394); //bottom left
+    cv::Point Q1 = cv::Point2f(556, 205); //top left pixel coordinate
+    cv::Point Q2 = cv::Point2f(760, 208); //top right
+    cv::Point Q3 = cv::Point2f(785, 325); //bottom right
+    cv::Point Q4 = cv::Point2f(523, 322); //bottom left
 
     double ratio = 1.3333; // width / height of the actual panel on the ground
     double cardH = sqrt((Q3.x - Q2.x) * (Q3.x - Q2.x) + (Q3.y - Q2.y) * (Q3.y - Q2.y));
@@ -124,14 +127,11 @@ int main(int argc, char **argv)
     cv::Point R3 = cv::Point2f(cv::Point2f(R.x + R.width, R.y + R.height));
     cv::Point R4 = cv::Point2f(cv::Point2f(R.x, R.y + R.height));
 
-    std::vector<cv::Point2f> quad_pts;
-    std::vector<cv::Point2f> squre_pts;
+    std::vector<cv::Point2f> quad_pts{Q1, Q2, Q3, Q4};
+    std::vector<cv::Point2f> squre_pts{R1, R2, R3, R4};
 
     cv::Mat transmtx = cv::getPerspectiveTransform(quad_pts, squre_pts);
-
     cv::Mat transformed = cv::Mat::zeros(ohm_webcam.get(CV_CAP_PROP_FRAME_HEIGHT), ohm_webcam.get(CV_CAP_PROP_FRAME_WIDTH), CV_8UC3);
-
-    double intersections;
 
 #pragma endregion
     while (ros::ok())
@@ -157,7 +157,6 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < NUM_MASKS; i++)
         {
             intersections = 0;
-
             cv::bitwise_and(binary_image, cropped_mask[i], anding);
             intersections = (cv::countNonZero(anding) / mask_size[i]) * 100;
           
