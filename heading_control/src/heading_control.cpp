@@ -45,6 +45,8 @@ struct heading_control {
 		nh_private.param("max_linear", max_linear_speed, 0.3);
 		nh_private.param("max_angular", max_angular_speed, 0.25);
 		nh_private.param("drive_mode", drive_mode, std::string("manual"));
+		nh_private.param("flip_fb", flip_front_back, false);
+		nh_private.param("flip_rl", flip_right_left, false);
 		nh_private.param("enable_gps", gps_enable, true);
 		nh_private.param("enable_lidar", lidar_enable, true);
 		nh_private.param("enable_camera", camera_enable, true);
@@ -65,6 +67,10 @@ struct heading_control {
 		nh_private.param("reference_frame", ref_frame_id, std::string("world"));
 
 		waypoint_id = 0;
+		turn_state = 0;
+		et_go_home = false;
+		force_turn_in_place = false;
+		hit_waypoint = false;
 	};
 
 	void update_lidar(const ohm_igvc_msgs::RangeArray::ConstPtr &ranges) {
@@ -98,12 +104,12 @@ struct heading_control {
 
 		req_conv.request.coordinate.latitude = req_wp.response.waypoint.latitude;
 		req_conv.request.coordinate.longitude = req_wp.response.waypoint.longitude;
+		goal.heading = req_wp.response.waypoint.heading;
 
 		if(!coordinate_convert.call(req_conv)) return false;
 
 		goal.position.x = req_conv.response.coordinate.x;
 		goal.position.y = req_conv.response.coordinate.y;
-		goal.heading = req_wp.response.waypoint.heading;
 
 		waypoint_id++;
 
@@ -117,11 +123,11 @@ struct heading_control {
 		if(diff > 180.0 && target > supp) {
 			target -= 360.0;
 			if(!force_turn_in_place) turn_state = 1; // turning left
-			else turn_state = 3;
+			else turn_state = 4;
 		} else if(diff > 180.0 && target < supp) {
 			target += 360.0;
 			if(!force_turn_in_place) turn_state = 2; // turning right
-			else turn_state = 3;
+			else turn_state = 5;
 		} else if(diff <= 180.0 && diff > 90.0) {
 			turn_state = 3; // turning in place
 		} else {
@@ -130,6 +136,19 @@ struct heading_control {
 		
 		return target;
 	};
+
+	double decondition_target(double conditioned_target) {
+		switch(turn_state) {
+			case 1: case 4:
+				return conditioned_target + 360.0;
+				break;
+			case 2: case 5:
+				return conditioned_target - 360.0;
+				break;
+			default:
+				return conditioned_target;
+		}
+	};	
 
 	/*** VARIABLES ***/
 	// ros specific
@@ -148,13 +167,16 @@ struct heading_control {
 	double desired_heading;
 	double chosen_heading;
 	std::string drive_mode;
+	bool flip_front_back;
+	bool flip_right_left;
 	bool gps_enable;
 	bool lidar_enable;
 	bool camera_enable;
 	bool pid_debug;
 	bool et_go_home;
 	bool force_turn_in_place;
-	int turn_state; // 0 = NORMAL TURN, 1 = LEFT CROSSING BOUNDARY, 2 = RIGHT CROSSING BOUNDARY, 3 = IN_PLACE
+	bool hit_waypoint;
+	int turn_state; // 0 = NORMAL TURN, 1 = LEFT CROSSING BOUNDARY, 2 = RIGHT CROSSING BOUNDARY, 3 = IN_PLACE, 4/5 FORCED TURN IN PLACE
 	ohm_igvc_msgs::Waypoint start;
 	ohm_igvc_msgs::RangeArray lidar_ranges;
 	ohm_igvc_msgs::TurnAngles turn_angles;
@@ -203,6 +225,8 @@ int main(int argc, char** argv) {
 		control.start = control.pose;
 	}
 
+	control.get_next_waypoint();
+
 	PID pid_controller(control.kP, control.kI, control.kD, control.max_i_err);
 	
 	while(ros::ok() && target < targets.size()) {
@@ -226,40 +250,51 @@ int main(int argc, char** argv) {
 				target = 0;
 				pid_controller.target(control.condition_target(targets[target]));
 			}
+			control.start = control.pose;
 		}		
 
 		if(control.get_pose()) {
 			/*** Heading Control code ***/			
 			
 			double desired_heading = control.pose.heading;
+			double gps_dh, lidar_dh, camera_dh;
 			
 			if(control.pid_debug) {
 				desired_heading = targets[target];
 			}
 
 			if(control.gps_enable) {
-				desired_heading = circular_range::wrap(desired_heading + geometric::angular_distance(control.pose.position, control.goal.position), 360.0);
+				desired_heading = circular_range::wrap(geometric::angular_distance(control.pose.position, control.goal.position), 360.0);
+				gps_dh = desired_heading;				
+			
+				control.hit_waypoint = (control.hit_waypoint ? true : rough_cmp::lt_eq(geometric::distance(control.pose.position, control.goal.position), control.waypoint_hit_thresh, 0.1));
+				bool hit_heading = rough_cmp::equals(control.pose.heading, control.goal.heading, 3.0);
 
-				bool hit_waypoint = rough_cmp::lt_eq(geometric::distance(control.pose.position, control.goal.position), control.waypoint_hit_thresh, 0.1);
-				bool hit_heading = rough_cmp::equals(desired_heading, control.goal.heading, 3.0);
-
-				if(hit_waypoint && hit_heading) {
-					ROS_INFO("HIT Target #%d: (%f, %f) @ %f | Actual: (%f, %f) @ %f", control.waypoint_id, control.goal.position.x, control.goal.position.y, control.goal.heading, control.pose.position.x, control.pose.position.y, control.pose.heading);				
+				if(control.hit_waypoint && hit_heading) {
+					ROS_INFO("HIT Target #%d: (%f, %f) @ %f | Actual: (%f, %f) @ %f", control.waypoint_id - 1, control.goal.position.x, control.goal.position.y, control.goal.heading, control.pose.position.x, control.pose.position.y, control.pose.heading);				
 					control.force_turn_in_place = false;			
-
-					if(!control.et_go_home && !control.get_next_waypoint()) {
+					
+					bool next_waypoint = control.get_next_waypoint();
+					control.hit_waypoint = false;
+		
+					if(!control.et_go_home && !next_waypoint) {
 						control.et_go_home = true;
 						control.goal = control.start;
-					} else {
+						ROS_INFO("Heading to start");
+					} else if(control.et_go_home && !next_waypoint) {
 						drive_command.linear.x = 0.0;
-						drive_command.angular.z = 0.1;
+						drive_command.angular.z = (control.flip_right_left ? -1.0 : 1.0) * 0.1;
 
 						control.vel_pub.publish(drive_command);
+						ROS_INFO("HOME!");
 						break;
+					} else {
+						desired_heading = circular_range::wrap(geometric::angular_distance(control.pose.position, control.goal.position), 360.0);
 					}
-				} else if(hit_waypoint) {
+				} else if(control.hit_waypoint) {
 					control.force_turn_in_place = true;
 					desired_heading = control.goal.heading;
+					ROS_INFO("Hit waypoint. Adjusting heading");
 				}
 			}
 
@@ -277,11 +312,17 @@ int main(int argc, char** argv) {
 					best_angles.reserve(control.turn_angles.turn_angles.size());
 				
 					for(auto angle = control.turn_angles.turn_angles.begin(); angle != control.turn_angles.turn_angles.end(); ++angle) {
-						best_angles.push_back(circular_range::direction(desired_heading, *angle) * std::fabs(desired_heading - *angle));
+						best_angles.push_back(circular_range::wrap(desired_heading + *angle, 360.0));
 					}
 
-					std::sort(best_angles.begin(), best_angles.end(), [] (double a, double b) { return (std::fabs(a) < std::fabs(b)); });
-					desired_heading += best_angles.front();
+					std::sort(best_angles.begin(), best_angles.end(), [&] (double a, double b) { return (circular_range::smallest_difference(desired_heading, a) < circular_range::smallest_difference(desired_heading, b)); });
+					desired_heading = circular_range::wrap(desired_heading + best_angles.front(), 360.0);
+					
+					camera_dh = desired_heading;
+								
+					ROS_INFO("Chose angle %f from camera angles", best_angles.front());
+				} else {
+					ROS_INFO("No camera angles!");
 				}
 			}
 
@@ -306,7 +347,9 @@ int main(int argc, char** argv) {
 					if(!found_desired_heading) { // ok now we look for the smallest difference
 						std::sort(best_angles.begin(), best_angles.end(), [] (double a, double b) { return (std::fabs(a) < std::fabs(b)); });
 						
-						desired_heading += best_angles.front(); 
+						desired_heading = circular_range::wrap(desired_heading + best_angles.front(), 360.0);
+						lidar_dh = desired_heading;					
+	 
 						ROS_INFO("\tFound next best angle");
 					}
 				} else if(control.lidar_ranges.ranges.empty()) {
@@ -315,7 +358,9 @@ int main(int argc, char** argv) {
 				}
 			}
 
-			if(!rough_cmp::equals(pid_controller.get_target(), desired_heading, 2.0)) {
+			ROS_INFO("HDNG: %f dg | TRG: %f dg | POS: (%f, %f) | TRG: (%f, %f) | DST: %f m | FTIP: %d, TRN_ST: %d, GPS_DH: %f, CAM_DH: %f, LID_DH: %f", control.pose.heading, desired_heading, control.pose.position.x, control.pose.position.y, control.goal.position.x, control.goal.position.y, geometric::distance(control.pose.position, control.goal.position), control.force_turn_in_place ? 1 : 0, control.turn_state ? 1 : 0, gps_dh, camera_dh, lidar_dh);
+
+			if(!rough_cmp::equals(control.decondition_target(pid_controller.get_target()), desired_heading, 2.0)) {
 				pid_controller.target(control.condition_target(desired_heading));
 				ROS_INFO("\tSwitching heading");
 			}
@@ -325,10 +370,10 @@ int main(int argc, char** argv) {
 			double adjusted_heading;
 
 			switch(control.turn_state) { // condition inputs to get correct PID output. similar to condition_target
-				case 1: // LEFT CROSS BOUNDARY
+				case 1: case 4: // LEFT CROSS BOUNDARY
 					adjusted_heading = control.pose.heading - 360.0;
 					break;
-				case 2: // RIGHT CROSS BOUNDARY
+				case 2: case 5: // RIGHT CROSS BOUNDARY
 					adjusted_heading = control.pose.heading + 360.0;
 					break;
 				case 3: // IN_PLACE
@@ -336,13 +381,15 @@ int main(int argc, char** argv) {
 					break;
 				default:
 					adjusted_heading = control.pose.heading;
-					drive_command.linear.x = control.max_linear_speed;
+					drive_command.linear.x = (control.flip_front_back ? -1.0 : 1.0) * control.max_linear_speed;
 			}		
 			
 			drive_command.angular.z = pid_controller.update(adjusted_heading, control.PID_type); // update pid
 		
 			if(drive_command.angular.z > control.max_angular_speed) drive_command.angular.z = control.max_angular_speed;
 			else if(drive_command.angular.z < -control.max_angular_speed) drive_command.angular.z = -control.max_angular_speed;	
+
+			drive_command.angular.z = (control.flip_right_left ? -1.0 : 1.0) * drive_command.angular.z;
 
 			ROS_INFO("Target: %f | Actual: %f | Update: %f", pid_controller.get_target(), control.pose.heading, drive_command.angular.z);
 

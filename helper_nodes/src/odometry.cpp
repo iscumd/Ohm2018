@@ -23,6 +23,7 @@ class odometry {
 		//ROS_INFO("start lon = %f", origin.longitude);
 		return (K_EW * (lon - origin.longitude)); 
 	};
+
 	double gps_y(double lat) { 
 		//ROS_INFO("K_NS = %f", K_NS);
 		//ROS_INFO("lat = %f", lat);
@@ -69,8 +70,8 @@ odometry::odometry() {
 }
 
 void odometry::position_callback(const vn300::Pose::ConstPtr &pos) {
-    position.y = gps_x(pos->position[1]);
-	position.x = gps_y(pos->position[0]);
+    position.y = gps_x(pos->position[1]); // 1 is lon
+	position.x = gps_y(pos->position[0]); // 0 is lat
 
     position.theta = pos->heading[0];
 	

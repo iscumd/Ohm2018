@@ -2,6 +2,8 @@
 	<arg name="p_term" default="0.001" />
 	<arg name="i_term" default="0.0" />
 	<arg name="d_term" default="0.0" />
+	<arg name="flip_linear" default="false" />
+	<arg name="flip_angular" default="false" />
 	<arg name="using_gps" default="false" />
 	<arg name="using_lidar" default="false" />
 	<arg name="using_camera" default="false" />
@@ -12,6 +14,8 @@
 		<param name="kP" value="$(arg p_term)" />
 		<param name="kI" value="$(arg i_term)" />
 		<param name="kD" value="$(arg d_term)" />
+		<param name="flip_fb" value="$(arg flip_linear)" />
+		<param name="flip_rl" value="$(arg flip_angular)" />
 		<param name="enable_gps" value="$(arg using_gps)" />
 		<param name="enable_lidar" value="$(arg using_lidar)" />
 		<param name="enable_camera" value="$(arg using_camera)" />

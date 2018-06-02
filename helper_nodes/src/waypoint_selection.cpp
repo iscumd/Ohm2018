@@ -99,10 +99,11 @@ bool waypoint(ohm_igvc_srvs::waypoint::Request  &req,
 int main(int argc, char **argv){
 	ros::init(argc, argv, "waypoint_selection");
 
-	ros::NodeHandle n("~");
+	ros::NodeHandle n;
+	ros::NodeHandle nh_private("~");
 	
 	std::string navigationFile;
-	if (n.getParam("navigation_file", navigationFile)){
+	if (nh_private.getParam("navigation_file", navigationFile)){
 		ROS_INFO("Using navigation_file %s", navigationFile.c_str());
 
 		targetLocationList = ReadFile(navigationFile);

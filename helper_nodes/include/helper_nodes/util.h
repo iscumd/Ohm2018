@@ -48,7 +48,7 @@ namespace geometric {
 	inline double distance(point_t a, point_t b) { return std::hypot(b.x - a.x, b.y - a.y); }
 
 	template<class point_t> // where a is your reference and b is your test point
-	inline double angular_distance(point_t a, point_t b) { return (std::atan2((b.y - a.y), (b.x - a.x)) * (180.0 / pi)); };
+	inline double angular_distance(point_t a, point_t b) { return (std::atan2(-1.0 * (b.y - a.y), -1.0 * (b.x - a.x)) * (180.0 / pi)); };
 
 	template<class point_t> // special case of average of 2 points
 	inline point_t average(point_t a, point_t b) {

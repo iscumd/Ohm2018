@@ -3,32 +3,26 @@
 	<remap from="/RosAria/cmd_vel" to="/ohm/control" />
 
 	<!-- Heading Control -->
-	<remap from="auto_control" to="/ohm/control" />
+	<remap from="auto_control" to="/ohm/auto_control" />
 	<remap from="lidar" to="/ohm/ranges" />
-	<param name="kP" value="0.01" />
-	<param name="enable_gps" value="false" />
-	<param name="enable_lidar" value="true" />
-	<param name="enable_camera" value="false" />
-	<param name="max_linear" value="0.3" />
-	<param name="max_angular" value="0.3" />
-	<param name="base_frame" value="base_link" />
-	<param name="reference_frame" value="odom" />
-	<node pkg="heading_control" type="heading_control_node" name="heading_control" output="screen" />
+	<include file="$(find heading_control)/launch/heading.launch">
+		<arg name="using_lidar" value="true" />
+		<arg name="flip_angular" value="false" />
+		<arg name="max_speed" value="0.3" />
+		<arg name="max_turn" value="0.2" />
+	</include>
 
 	<!-- LiDAR Node and Object Detection -->
-	<!-- remap from="/RosAria/sim_lms2xx_1_pointcloud" to="/ohm/pcl" / -->
-	<remap from="/RosAria/sim_lms2xx_1_laserscan" to="/ohm/scan" />
-	<remap from="scan" to="/ohm/scan" />
-	<remap from="scan_to_xy_out" to="/ohm/pcl" />
-	<param name="use_tf" value="true" />
-	<param name="use_sim" value="true" />
-	<node pkg="helper_nodes" type="scan_to_xy" name="scan_to_xy" />
+	<remap from="/RosAria/sim_lms2xx_1_pointcloud" to="/ohm/pcl" />
 	<remap from="ranges" to="/ohm/ranges" />
+	<remap from="scan_to_xy_out" to="/ohm/pcl" />
 	<param name="forgivable" value="4" />
 	<param name="max_point_distance" value="1.2" />
 	<param name="min_group_count" value="4" />
 	<param name="reaction_distance" value="1.8" />
-	<node pkg="object_detection" name="object_detection" type="object_detection_node" />
+	<param name="base_frame" value="base_link" />
+	<param name="reference_frame" value="odom" />
+	<node pkg="object_detection" name="object_detection" type="object_detection_node" output="screen" />
 	
 	<!-- Joystick and Manual Control-->
 	<remap from="joy" to="/ohm/joy" />

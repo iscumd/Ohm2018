@@ -1,9 +1,9 @@
 <launch>
-	<arg name="lat" default="0.0" />
-	<arg name="lon" default="0.0" />
+	<arg name="lat_origin" default="0.0" />
+	<arg name="lon_origin" default="0.0" />
 	<node pkg="helper_nodes" type="odometry" name="odometry" output="screen">
-		<param name="origin_latitude" value="$(arg lat)" />
-		<param name="origin_longitude" value="$(arg lon)" />
+		<param name="origin_latitude" value="$(arg lat_origin)" />
+		<param name="origin_longitude" value="$(arg lon_origin)" />
 		<param name="K_NS" value="111120.00" />
 	</node>
 </launch>

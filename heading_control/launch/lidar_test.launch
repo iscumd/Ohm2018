@@ -2,27 +2,34 @@
 	<!-- GPS -->
 	<remap from="pose" to="/ohm/raw_pose" />
 	<remap from="velocities" to="/ohm/velocity" />
-	<param name="device" value="/dev/ttyUSB0" />
-	<node pkg="vn300" type="vn300_node" name="vn300_node" />
+	<remap from="status" to="/ohm/gps_status" />
+	<include file="$(find vn300)/launch/vn300.launch" />
 
 	<!-- Odometry -->
 	<remap from="odom" to="/ohm/odom" />
-	<!-- param name="origin_latitude" value="42.3200317" / -->
-	<!-- param name="origin_longitude" value="-83.2312428" / -->
-	<node pkg="helper_nodes" type="odometry" name="odometry" output="screen" />
+	<include file="$(find helper_nodes)/launch/odometry.launch">
+		<!-- arg name="lat_origin" value="42.3200317" / -->
+		<!-- arg name="lon_origin" value="-83.2312428" / -->
+		<arg name="lat_origin" value="42.679353" />
+		<arg name="lon_origin" value="-83.195195"/>
+	</include>
+
+	<!-- Waypoint Service -->
+	<include file="$(find helper_nodes)/launch/waypoint.launch">
+		<arg name="nav_file" value="gps_test_2.txt" />
+	</include>
 
 	<!-- Heading Control -->
 	<remap from="auto_control" to="/ohm/auto_control" />
 	<remap from="lidar" to="/ohm/ranges" />
-	<param name="kP" value="0.001" />
-	<!-- param name="kD" value="0.01" / -->
-	<param name="enable_gps" value="false" />
-	<param name="enable_lidar" value="true" />
-	<param name="enable_camera" value="false" />
-	<param name="max_linear" value="0.2" />
-	<param name="max_angular" value="0.15" />
-	<param name="base_frame" value="ohm_base_link" />
-	<node pkg="heading_control" type="heading_control_node" name="heading_control" output="screen" />
+	<include file="$(find heading_control)/launch/heading.launch">
+		<arg name="using_gps" value="false" />
+		<arg name="using_lidar" value="true" />
+		<arg name="using_camera" value="false" />
+		<arg name="flip_angular" value="true" />
+		<arg name="max_speed" value="0.3" />
+		<arg name="max_turn" value="0.2" />
+	</include>
 
 	<!-- Static Transforms -->
 	<node pkg="tf" type="static_transform_publisher" name="laser_link" args="0.3 0 0 0 0 0 ohm_base_link laser 100" />
@@ -38,7 +45,8 @@
 	<param name="max_point_distance" value="1.4" />
 	<param name="min_group_count" value="4" />
 	<param name="reaction_distance" value="2.0" />
-	<node pkg="object_detection" name="object_detection" type="object_detection_node" />
+	<param name="base_frame" value="ohm_base_link" />
+	<node pkg="object_detection" name="object_detection" type="object_detection_node" output="screen" />
 	
 	<!-- Joystick and Manual Control-->
 	<remap from="joy" to="/ohm/joy" />

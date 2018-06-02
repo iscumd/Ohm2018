@@ -89,7 +89,7 @@ void object_detector::find_valid_ranges(std::vector<std::list<geometry_msgs::Poi
 			for(auto point = group->begin(); point != group->end(); ++point) {
 				// ROS_INFO("point %d, group %d: (%f, %f)", (int)std::distance(group->begin(), point), (int)std::distance(groups.begin(), group), point->x, point->y);
 
-				this_angle = geometric::angular_distance(pose.position, point32_to_point(*point));
+				this_angle = circular_range::wrap(geometric::angular_distance(pose.position, point32_to_point(*point)), 360.0);
 				this_dist = geometric::distance(point32_to_point(*point), pose.position);
 
 				// ROS_INFO("\t@ %f deg, %f m", this_angle, this_dist);
